@@ -1,42 +1,157 @@
-#root {
+.app {
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
+}
+
+/* Home Page */
+.home-page {
   text-align: center;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.home-page h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(120deg, #646cff, #4da9ff);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.home-page .actions {
+  margin: 2rem 0;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.projects-section {
+  margin-top: 3rem;
+  text-align: left;
 }
 
-.card {
-  padding: 2em;
+/* Project Detail Page */
+.project-detail-page {
+  text-align: left;
 }
 
-.read-the-docs {
-  color: #888;
+.project-detail-page a {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: #646cff;
+  text-decoration: none;
+}
+
+.project-detail-page a:hover {
+  text-decoration: underline;
+}
+
+.project-info {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2rem;
+  border-radius: 8px;
+  margin: 2rem 0;
+}
+
+.funding-section {
+  margin-top: 2rem;
+}
+
+/* Create Project Page */
+.create-project-page {
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.create-project-page a {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: #646cff;
+  text-decoration: none;
+}
+
+.create-project-page a:hover {
+  text-decoration: underline;
+}
+
+.create-project-page h1 {
+  margin-bottom: 0.5rem;
+}
+
+/* Form Styles */
+.project-form {
+  margin-top: 2rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.87);
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.87);
+  font-size: 1rem;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #646cff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* Button Styles */
+button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.25s;
+  background-color: #646cff;
+  color: white;
+  font-family: inherit;
+}
+
+button:hover {
+  background-color: #535bf2;
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.form-actions button[type="button"] {
+  background-color: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.87);
+}
+
+.form-actions button[type="button"]:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.3);
 }
