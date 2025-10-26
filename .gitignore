@@ -1,0 +1,11 @@
+# Markdown files
+*.md
+
+# Frontend
+frontend/node_modules
+frontend/dist
+frontend/.env.local
+
+# Sui Move build artifacts
+foundry/build
+

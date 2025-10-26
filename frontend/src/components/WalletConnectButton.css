@@ -1,0 +1,34 @@
+.wallet-connect-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.wallet-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.wallet-status {
+  font-size: 0.875rem;
+  color: #4ade80;
+  font-weight: 500;
+}
+
+/* Override dapp-kit button styles to match our theme */
+.wallet-connect-wrapper button {
+  background-color: #646cff !important;
+  color: white !important;
+  border: none !important;
+  padding: 0.75rem 1.5rem !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.25s !important;
+}
+
+.wallet-connect-wrapper button:hover {
+  background-color: #535bf2 !important;
+}
+
