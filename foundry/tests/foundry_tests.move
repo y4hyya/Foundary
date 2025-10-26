@@ -995,4 +995,222 @@ module foundry::foundry_tests {
         
         ts::end(scenario);
     }
+
+    // === Post Job Tests ===
+
+    #[test]
+    fun test_post_job_success() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"project_with_jobs"),
+                5_000_000_000,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Owner posts a job
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::post_job(
+                &mut project,
+                string::utf8(b"Senior Blockchain Developer"),
+                string::utf8(b"walrus_job_cid_123"),
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 3)] // ENotProjectOwner
+    fun test_post_job_non_owner() {
+        let mut scenario = ts::begin(CREATOR);
+        let non_owner = @0xBAD;
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"unauthorized_job_post"),
+                5_000_000_000,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Non-owner tries to post a job (should fail)
+        ts::next_tx(&mut scenario, non_owner);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::post_job(
+                &mut project,
+                string::utf8(b"Unauthorized Job"),
+                string::utf8(b"walrus_cid"),
+                ctx
+            ); // Should abort
+            
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_post_multiple_jobs() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"multi_job_project"),
+                10_000_000_000,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Owner posts first job
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::post_job(
+                &mut project,
+                string::utf8(b"Frontend Developer"),
+                string::utf8(b"walrus_job_1"),
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        // Owner posts second job
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::post_job(
+                &mut project,
+                string::utf8(b"Backend Developer"),
+                string::utf8(b"walrus_job_2"),
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        // Owner posts third job
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::post_job(
+                &mut project,
+                string::utf8(b"Marketing Manager"),
+                string::utf8(b"walrus_job_3"),
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_post_job_after_funding() {
+        let mut scenario = ts::begin(CREATOR);
+        let backer = @0xBABE;
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"funded_job_project"),
+                5_000_000_000,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Backer funds project
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(6_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Owner posts job after receiving funding
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::post_job(
+                &mut project,
+                string::utf8(b"Project Manager"),
+                string::utf8(b"walrus_pm_job"),
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_post_job_with_long_title() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"job_title_test"),
+                5_000_000_000,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Owner posts a job with a long title
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::post_job(
+                &mut project,
+                string::utf8(b"Senior Full-Stack Blockchain Developer with Experience in Move and Sui"),
+                string::utf8(b"walrus_detailed_job_cid"),
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        ts::end(scenario);
+    }
 }

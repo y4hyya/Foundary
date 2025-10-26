@@ -1,0 +1,776 @@
+# Job System - Complete Documentation
+
+## Overview
+
+The Job System allows project owners to post job opportunities, tasks, or positions related to their crowdfunding projects. Jobs are stored on-chain with references to detailed descriptions stored off-chain via Walrus decentralized storage.
+
+---
+
+## Job Struct
+
+### Definition
+
+```move
+public struct Job has store, drop {
+    id: u64,
+    title: String,
+    description_cid: String,
+}
+```
+
+### Fields
+
+1. **id: u64**
+   - Unique identifier for the job
+   - Matches the key in the project's jobs table
+   - Auto-generated sequentially (0, 1, 2, ...)
+
+2. **title: String**
+   - Short, descriptive title of the job/task
+   - Stored on-chain
+   - Examples: "Senior Developer", "Marketing Manager"
+
+3. **description_cid: String**
+   - Walrus Content Identifier (CID)
+   - Points to off-chain JSON with detailed job information
+   - Includes requirements, responsibilities, compensation, etc.
+
+### Capabilities
+
+- **store**: Can be stored in tables and data structures
+- **drop**: Can be discarded/deleted without explicit destruction
+
+---
+
+## post_job() Function
+
+### Function Signature
+
+```move
+public fun post_job(
+    project: &mut Project,
+    title: String,
+    description_cid: String,
+    ctx: &mut TxContext
+)
+```
+
+### Parameters
+
+1. **project: &mut Project**
+   - Mutable reference to the Project
+   - Will be modified (job added to jobs table, job_counter incremented)
+
+2. **title: String**
+   - Title of the job posting
+   - Stored on-chain in the Job struct
+
+3. **description_cid: String**
+   - Walrus CID for detailed job description
+   - References off-chain JSON content
+
+4. **ctx: &mut TxContext**
+   - Transaction context
+   - Used to verify caller is project owner
+
+### Returns
+
+- Nothing directly
+- Modifies the project by adding a job to the jobs table
+- Emits a JobPosted event
+
+---
+
+## Implementation Details
+
+### Process Flow
+
+```
+1. Get caller's address (tx_context::sender)
+   ↓
+2. Verify caller == project.owner
+   ↓
+3. Get current job_counter value (new job ID)
+   ↓
+4. Increment job_counter
+   ↓
+5. Create Job struct with ID, title, description_cid
+   ↓
+6. Add Job to project.jobs table
+   ↓
+7. Emit JobPosted event
+```
+
+### Security Checks
+
+1. **Owner Verification**
+   ```move
+   assert!(caller == project.owner, ENotProjectOwner);
+   ```
+   - Only project owner can post jobs
+   - Error code: 3 (ENotProjectOwner)
+
+### Key Operations
+
+```move
+// Get caller
+let caller = tx_context::sender(ctx);
+
+// Verify ownership
+assert!(caller == project.owner, ENotProjectOwner);
+
+// Generate job ID
+let job_id = project.job_counter;
+project.job_counter = project.job_counter + 1;
+
+// Create job
+let job = Job {
+    id: job_id,
+    title,
+    description_cid,
+};
+
+// Add to table
+table::add(&mut project.jobs, job_id, job);
+
+// Emit event
+event::emit(JobPosted {
+    project_id: object::uid_to_address(&project.id),
+    job_id,
+    title,
+    description_cid,
+});
+```
+
+---
+
+## Error Conditions
+
+### ENotProjectOwner (Error Code: 3)
+**When:** Caller is not the project owner
+**Example:**
+```move
+// Non-owner tries to post a job
+post_job(&mut project, title, cid, ctx); // ❌ Aborts with code 3
+```
+
+---
+
+## Usage Examples
+
+### Example 1: Basic Job Posting
+
+```move
+// Owner creates project
+let project = create_project(
+    string::utf8(b"My Startup"),
+    10_000_000_000,
+    deadline,
+    ctx
+);
+
+// Owner posts a job
+post_job(
+    &mut project,
+    string::utf8(b"Senior Blockchain Developer"),
+    string::utf8(b"walrus_job_details_cid_123"),
+    ctx
+);
+// Job ID 0 created and added to project
+```
+
+### Example 2: Multiple Job Postings
+
+```move
+// Owner posts first job
+post_job(
+    &mut project,
+    string::utf8(b"Frontend Developer"),
+    string::utf8(b"walrus_frontend_job"),
+    ctx
+); // Job ID 0
+
+// Owner posts second job
+post_job(
+    &mut project,
+    string::utf8(b"Backend Developer"),
+    string::utf8(b"walrus_backend_job"),
+    ctx
+); // Job ID 1
+
+// Owner posts third job
+post_job(
+    &mut project,
+    string::utf8(b"Marketing Manager"),
+    string::utf8(b"walrus_marketing_job"),
+    ctx
+); // Job ID 2
+```
+
+### Example 3: Posting After Funding
+
+```move
+// Backers fund the project
+fund_project(&mut project, coin::mint(5_000_000_000, ctx), ctx);
+fund_project(&mut project, coin::mint(3_000_000_000, ctx), ctx);
+
+// Goal met, owner claims funds
+claim_funds(&mut project, ctx);
+
+// Now owner posts jobs for the funded project
+post_job(
+    &mut project,
+    string::utf8(b"Project Manager"),
+    string::utf8(b"walrus_pm_job_cid"),
+    ctx
+);
+```
+
+---
+
+## State Changes
+
+### Project Object Changes
+- **jobs table**: New Job entry added
+- **job_counter**: Incremented by 1
+- **All other fields**: Unchanged
+
+### Objects Created
+- **Job**: Added to project's jobs table
+
+### Events Emitted
+```move
+JobPosted {
+    project_id: address,        // Project's address
+    job_id: u64,               // New job's ID
+    title: String,             // Job title
+    description_cid: String,   // Walrus CID
+}
+```
+
+---
+
+## Integration with Frontend
+
+### TypeScript Example (Using @mysten/dapp-kit)
+
+```typescript
+import { Transaction } from '@mysten/sui/transactions';
+import { useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+
+function PostJobButton({ 
+  projectId,
+  jobTitle,
+  descriptionCid 
+}: { 
+  projectId: string;
+  jobTitle: string;
+  descriptionCid: string;
+}) {
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
+
+  const handlePostJob = () => {
+    const tx = new Transaction();
+    
+    // Call post_job
+    tx.moveCall({
+      target: `${PACKAGE_ID}::foundry::post_job`,
+      arguments: [
+        tx.object(projectId),
+        tx.pure(jobTitle),
+        tx.pure(descriptionCid),
+      ],
+    });
+
+    signAndExecute({
+      transaction: tx,
+      options: {
+        showEvents: true,
+      },
+    }, {
+      onSuccess: (result) => {
+        console.log('Job posted!', result);
+        // Job is now visible in project
+      },
+      onError: (error) => {
+        console.error('Failed to post job:', error);
+      },
+    });
+  };
+
+  return <button onClick={handlePostJob}>Post Job</button>;
+}
+```
+
+### Uploading Job Description to Walrus
+
+```typescript
+import { uploadJson } from './utils/walrusClient';
+
+interface JobDescription {
+  title: string;
+  description: string;
+  requirements: string[];
+  responsibilities: string[];
+  compensation: {
+    type: 'salary' | 'equity' | 'hourly';
+    amount?: string;
+    details: string;
+  };
+  location: 'remote' | 'onsite' | 'hybrid';
+  employment_type: 'full-time' | 'part-time' | 'contract';
+}
+
+async function postJobWithDescription(
+  projectId: string,
+  jobData: JobDescription
+) {
+  // 1. Upload detailed description to Walrus
+  const { cid } = await uploadJson(jobData);
+  
+  // 2. Post job on-chain with CID
+  const tx = new Transaction();
+  
+  tx.moveCall({
+    target: `${PACKAGE_ID}::foundry::post_job`,
+    arguments: [
+      tx.object(projectId),
+      tx.pure(jobData.title),
+      tx.pure(cid),
+    ],
+  });
+  
+  return await signAndExecuteTransaction({ transaction: tx });
+}
+```
+
+---
+
+## Testing
+
+### Test Coverage
+
+All test cases implemented and passing:
+
+1. **test_post_job_success** ✅
+   - Owner successfully posts a job
+   - Job added to project
+
+2. **test_post_job_non_owner** ✅
+   - Non-owner attempt is rejected
+   - Aborts with ENotProjectOwner
+
+3. **test_post_multiple_jobs** ✅
+   - Owner posts 3 jobs sequentially
+   - Job IDs: 0, 1, 2
+
+4. **test_post_job_after_funding** ✅
+   - Job posted after project is funded
+   - Works at any project stage
+
+5. **test_post_job_with_long_title** ✅
+   - Handles long job titles
+   - No length restrictions
+
+### Running Tests
+
+```bash
+cd foundry
+sui move test
+
+# Expected output:
+# [ PASS    ] foundry::foundry_tests::test_post_job_success
+# [ PASS    ] foundry::foundry_tests::test_post_job_non_owner
+# [ PASS    ] foundry::foundry_tests::test_post_multiple_jobs
+# [ PASS    ] foundry::foundry_tests::test_post_job_after_funding
+# [ PASS    ] foundry::foundry_tests::test_post_job_with_long_title
+# Test result: OK. Total tests: 27; passed: 27; failed: 0
+```
+
+---
+
+## Security Considerations
+
+### ✅ Implemented Protections
+
+1. **Ownership Validation**
+   - Only project.owner can post jobs
+   - No delegate job posting
+   - Prevents spam and unauthorized postings
+
+2. **Sequential ID Generation**
+   - job_counter ensures unique IDs
+   - No ID collisions
+   - Predictable, sequential numbering
+
+3. **Off-chain Storage**
+   - Detailed descriptions stored via Walrus
+   - Reduces on-chain storage costs
+   - Enables rich content (images, videos, etc.)
+
+4. **Event Emission**
+   - All job posts are logged
+   - Enables off-chain indexing
+   - Supports job boards and discovery
+
+### ⚠️ Design Considerations
+
+1. **No Job Validation**
+   - Title can be any string (including empty)
+   - No format requirements
+   - No minimum/maximum length
+   - Future: Add validation rules
+
+2. **No Job Deletion**
+   - Jobs cannot be removed once posted
+   - Jobs table grows indefinitely
+   - Future: Implement delete_job()
+
+3. **No Job Updates**
+   - Jobs are immutable once created
+   - Cannot update title or description_cid
+   - Future: Implement update_job()
+
+4. **Walrus CID Not Verified**
+   - CID is accepted as-is
+   - No verification that content exists
+   - Off-chain validation recommended
+
+---
+
+## Job Description Schema (Walrus)
+
+### Recommended JSON Structure
+
+```json
+{
+  "title": "Senior Blockchain Developer",
+  "description": "We're looking for an experienced blockchain developer...",
+  "requirements": [
+    "5+ years of software development",
+    "3+ years with Rust",
+    "Experience with Move language",
+    "Understanding of blockchain fundamentals"
+  ],
+  "responsibilities": [
+    "Design and implement smart contracts",
+    "Review code and mentor junior developers",
+    "Collaborate with product team",
+    "Write technical documentation"
+  ],
+  "compensation": {
+    "type": "salary",
+    "range": "$120k - $180k USD",
+    "equity": "0.5% - 2%",
+    "details": "Competitive salary with equity options"
+  },
+  "location": "remote",
+  "employment_type": "full-time",
+  "benefits": [
+    "Health insurance",
+    "401k matching",
+    "Flexible vacation",
+    "Remote work"
+  ],
+  "application_link": "https://apply.example.com/job-123",
+  "posted_date": "2024-01-15",
+  "deadline": "2024-02-15"
+}
+```
+
+---
+
+## Common Patterns
+
+### Pattern 1: Job Board Integration
+
+```typescript
+// Listen for JobPosted events
+suiClient.subscribeEvent({
+  filter: {
+    MoveEventType: `${PACKAGE_ID}::foundry::JobPosted`
+  },
+  onMessage: async (event) => {
+    const { project_id, job_id, title, description_cid } = event.parsedJson;
+    
+    // Fetch job details from Walrus
+    const jobDetails = await fetchJson(description_cid);
+    
+    // Add to job board
+    await addJobToBoard({
+      projectId: project_id,
+      jobId: job_id,
+      title,
+      ...jobDetails
+    });
+  }
+});
+```
+
+### Pattern 2: Owner Dashboard
+
+```typescript
+interface ProjectWithJobs {
+  project: Project;
+  jobs: Job[];
+}
+
+async function getProjectJobs(projectId: string): Promise<Job[]> {
+  const project = await suiClient.getObject({
+    id: projectId,
+    options: { showContent: true }
+  });
+  
+  // Parse jobs from project.jobs table
+  const jobs = project.content.fields.jobs;
+  
+  return jobs.map((job: any) => ({
+    id: job.id,
+    title: job.title,
+    description_cid: job.description_cid
+  }));
+}
+```
+
+### Pattern 3: Job Application Flow
+
+```typescript
+async function applyToJob(
+  projectId: string,
+  jobId: number,
+  applicationData: any
+) {
+  // 1. Upload application to Walrus
+  const { cid } = await uploadJson(applicationData);
+  
+  // 2. Store application reference (future: on-chain application system)
+  await storeApplicationReference({
+    projectId,
+    jobId,
+    applicationCid: cid,
+    applicant: currentUserAddress
+  });
+  
+  // 3. Notify project owner
+  await notifyOwner({
+    projectId,
+    jobId,
+    message: 'New application received'
+  });
+}
+```
+
+---
+
+## Best Practices
+
+### For Project Owners
+
+1. **Clear Job Titles**
+   - Use descriptive, specific titles
+   - Include seniority level if applicable
+   - Examples: "Senior Frontend Developer", "Junior Marketing Associate"
+
+2. **Comprehensive Descriptions**
+   - Upload detailed job descriptions to Walrus
+   - Include requirements, responsibilities, compensation
+   - Add application instructions
+
+3. **Post at Right Time**
+   - Post jobs after funding is secured
+   - Or post during campaign to show project seriousness
+   - Update jobs as project evolves
+
+### For Frontend Developers
+
+1. **Fetch and Cache Job Details**
+   ```typescript
+   const jobCache = new Map<string, JobDescription>();
+   
+   async function getJobDetails(cid: string) {
+     if (jobCache.has(cid)) {
+       return jobCache.get(cid);
+     }
+     const details = await fetchJson(cid);
+     jobCache.set(cid, details);
+     return details;
+   }
+   ```
+
+2. **Display Job Listings**
+   ```typescript
+   function JobCard({ job }: { job: Job }) {
+     const [details, setDetails] = useState<JobDescription | null>(null);
+     
+     useEffect(() => {
+       getJobDetails(job.description_cid).then(setDetails);
+     }, [job.description_cid]);
+     
+     return (
+       <div className="job-card">
+         <h3>{job.title}</h3>
+         {details && (
+           <>
+             <p>{details.description}</p>
+             <ul>
+               {details.requirements.map(req => <li>{req}</li>)}
+             </ul>
+             <button>Apply</button>
+           </>
+         )}
+       </div>
+     );
+   }
+   ```
+
+3. **Handle Owner-Only UI**
+   ```typescript
+   const isOwner = userAddress === project.owner;
+   
+   return (
+     <div>
+       {isOwner && (
+         <button onClick={openPostJobModal}>
+           Post New Job
+         </button>
+       )}
+       
+       <JobList jobs={jobs} isOwner={isOwner} />
+     </div>
+   );
+   ```
+
+---
+
+## Future Enhancements
+
+### Planned Features
+
+1. **Update Job**
+   ```move
+   public fun update_job(
+       project: &mut Project,
+       job_id: u64,
+       new_title: String,
+       new_description_cid: String,
+       ctx: &mut TxContext
+   )
+   ```
+
+2. **Delete Job**
+   ```move
+   public fun delete_job(
+       project: &mut Project,
+       job_id: u64,
+       ctx: &mut TxContext
+   )
+   ```
+
+3. **Get Job**
+   ```move
+   public fun get_job(
+       project: &Project,
+       job_id: u64
+   ): &Job
+   ```
+
+4. **Job Applications On-Chain**
+   ```move
+   public struct Application has store {
+       job_id: u64,
+       applicant: address,
+       application_cid: String,
+       status: u8, // pending, accepted, rejected
+   }
+   ```
+
+5. **Job Expiration**
+   ```move
+   public struct Job has store, drop {
+       id: u64,
+       title: String,
+       description_cid: String,
+       expires_at: u64,
+       is_active: bool,
+   }
+   ```
+
+---
+
+## Comparison with Similar Systems
+
+| Feature | Foundry Jobs | LinkedIn Jobs | Web3 Job Boards |
+|---------|--------------|---------------|-----------------|
+| Storage | On-chain + Walrus | Centralized DB | Mixed |
+| Ownership | Project owner | Company | Platform |
+| Posting Cost | Gas fees | Subscription | Varies |
+| Censorship Resistance | High | Low | Medium |
+| Discovery | Events + Indexers | Algorithm | Platform search |
+| Applications | Off-chain (future) | Built-in | Varies |
+| Immutability | Yes | No | Varies |
+
+---
+
+## Quick Reference
+
+```move
+// Struct definition
+public struct Job has store, drop {
+    id: u64,
+    title: String,
+    description_cid: String,
+}
+
+// Function signature
+public fun post_job(
+    project: &mut Project,
+    title: String,
+    description_cid: String,
+    ctx: &mut TxContext
+)
+
+// Error code
+ENotProjectOwner = 3  // Only owner can post
+
+// Event emitted
+JobPosted {
+    project_id: address,
+    job_id: u64,
+    title: String,
+    description_cid: String,
+}
+
+// State changes
+project.jobs → new Job added
+project.job_counter → incremented
+
+// Usage
+post_job(
+    &mut project,
+    string::utf8(b"Senior Developer"),
+    string::utf8(b"walrus_cid_xyz"),
+    ctx
+);
+```
+
+---
+
+**Status:** ✅ Fully Implemented and Tested
+**Version:** Prompt 13 Complete
+**Tests:** 5/5 passing
+**Module:** foundry::foundry
+**Network:** Sui Testnet Ready
+
+**Job System Features:**
+```
+✅ Owner-only job posting
+✅ Sequential job IDs
+✅ Walrus integration for descriptions
+✅ Event emission for indexing
+✅ Multiple jobs per project
+✅ Works at any project stage
+⏳ Job updates pending
+⏳ Job deletion pending
+⏳ Job applications pending
+```
+

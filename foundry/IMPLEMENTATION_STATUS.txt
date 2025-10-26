@@ -1,13 +1,13 @@
 # Foundry Implementation Status
 
-## Current Implementation (Prompt 12 Complete)
+## Current Implementation (Prompt 13 Complete)
 
 ### ✅ Completed Features
 
 #### 1. Core Structs
 - [x] Project struct (13 fields with has key, store)
 - [x] Contribution struct (4 fields with has key, store)
-- [x] JobPlaceholder struct (placeholder for future)
+- [x] Job struct (3 fields with store, drop)
 - [x] PollPlaceholder struct (placeholder for future)
 
 #### 2. Events
@@ -15,6 +15,7 @@
 - [x] ContributionMade event
 - [x] FundsWithdrawn event
 - [x] RefundIssued event
+- [x] JobPosted event
 
 #### 3. Error Constants
 - [x] EInvalidFundingGoal (1)
@@ -32,6 +33,7 @@
 - [x] fund_project() - Fully implemented and tested
 - [x] claim_funds() - Fully implemented and tested
 - [x] reclaim_funds() - Fully implemented and tested
+- [x] post_job() - Fully implemented and tested
 
 #### 5. Testing
 - [x] test_create_project_success
@@ -56,7 +58,12 @@
 - [x] test_reclaim_funds_wrong_backer
 - [x] test_reclaim_funds_multiple_backers
 - [x] test_reclaim_funds_partial_contribution
-- [x] All tests passing (22/22)
+- [x] test_post_job_success
+- [x] test_post_job_non_owner
+- [x] test_post_multiple_jobs
+- [x] test_post_job_after_funding
+- [x] test_post_job_with_long_title
+- [x] All tests passing (27/27)
 
 #### 6. Documentation
 - [x] PROJECT_STRUCTURE.txt
@@ -78,7 +85,7 @@ sui move build
 ```
 sui move test
 ✅ Running Move unit tests
-✅ 22/22 tests passed
+✅ 27/27 tests passed
 ✅ 0 failures
 ```
 
@@ -258,6 +265,39 @@ public fun reclaim_funds(
 
 ---
 
+## post_job Function Details
+
+### Signature
+```move
+public fun post_job(
+    project: &mut Project,
+    title: String,
+    description_cid: String,
+    ctx: &mut TxContext
+)
+```
+
+### Implementation Checklist
+- [x] Owner verification (must be project owner)
+- [x] Job ID generation (using job_counter)
+- [x] Job struct creation
+- [x] Add to jobs table
+- [x] Event emission (JobPosted)
+- [x] Documentation
+- [x] Test coverage
+
+### Key Features
+✅ Owner-only access control
+✅ Automatic job ID generation
+✅ Walrus CID for detailed descriptions
+✅ Jobs stored in project table
+✅ Sequential job numbering
+✅ Event emission for indexing
+✅ Supports multiple jobs per project
+✅ Works at any project stage
+
+---
+
 ## Pending Implementation (Future Prompts)
 
 ### ⏳ Core Functions
@@ -268,10 +308,11 @@ public fun reclaim_funds(
 - [ ] Getter functions for project state
 
 ### ⏳ Job System
-- [ ] JobStruct definition
-- [ ] create_job() function
+- [x] Job struct definition - COMPLETE ✅
+- [x] ~~create_job()~~ → post_job() - COMPLETE ✅
 - [ ] update_job() function
-- [ ] get_jobs() function
+- [ ] delete_job() function
+- [ ] get_job() function
 
 ### ⏳ Poll System
 - [ ] Poll struct definition
@@ -293,25 +334,27 @@ public fun reclaim_funds(
 ```
 foundry/
 ├── sources/
-│   └── foundry.move              [Lines: 448]
+│   └── foundry.move              [Lines: 525]
 │       ├── Imports               ✅
 │       ├── Error constants (9)   ✅
 │       ├── Structs (4)           ✅
-│       ├── Events (4)            ✅
+│       ├── Events (5)            ✅
 │       ├── create_project()      ✅
 │       ├── fund_project()        ✅
 │       ├── claim_funds()         ✅
 │       ├── reclaim_funds()       ✅
+│       ├── post_job()            ✅
 │       └── Test helpers          ✅
 │
 ├── tests/
-│   └── foundry_tests.move        [Lines: 999]
+│   └── foundry_tests.move        [Lines: 1217]
 │       ├── Test imports          ✅
 │       ├── Test constants        ✅
-│       └── 22 test cases         ✅
+│       └── 27 test cases         ✅
 │
 ├── Move.toml                      ✅
 ├── CLAIM_FUNDS_DOCS.txt           ✅
+├── RECLAIM_FUNDS_DOCS.txt         ✅
 └── IMPLEMENTATION_STATUS.txt      ✅
 ```
 
@@ -385,12 +428,12 @@ frontend/
 ## Code Quality
 
 ### Metrics
-- **Total Lines**: ~1447 (module + tests)
-- **Functions**: 4 public, 1 test helper
-- **Structs**: 4 (2 main, 2 placeholder)
-- **Events**: 4 (all integrated)
+- **Total Lines**: ~1742 (module + tests)
+- **Functions**: 5 public, 1 test helper
+- **Structs**: 4 (3 main, 1 placeholder)
+- **Events**: 5 (all integrated)
 - **Error Constants**: 9
-- **Tests**: 22 (all passing)
+- **Tests**: 27 (all passing)
 - **Documentation**: Comprehensive inline docs + status file
 
 ### Standards Compliance
@@ -406,24 +449,26 @@ frontend/
 
 ## Summary
 
-**Status**: Prompt 12 COMPLETE ✅
+**Status**: Prompt 13 COMPLETE ✅
 **Functions Implemented**:
 - create_project() - Full ✅
 - fund_project() - Full ✅
 - claim_funds() - Full ✅
 - reclaim_funds() - Full ✅
+- post_job() - Full ✅
 
-**Tests**: 22/22 passing ✅
+**Tests**: 27/27 passing ✅
 **Integration**: Frontend ready
-**Ready For**: Getter functions or Job/Poll systems (Prompt 13+)
+**Ready For**: Job management functions or Poll system (Prompt 14+)
 
 **Module Health**: 🟢 Excellent
 - Compiles successfully
-- All tests passing (22/22)
+- All tests passing (27/27)
 - Well documented
 - Security conscious
 - Complete crowdfunding cycle (create → fund → claim OR reclaim)
-- Ready for getter functions & advanced features
+- Job posting system implemented
+- Ready for job management & poll system
 
 **Capabilities Unlocked**:
 - ✅ Users can create projects
@@ -436,14 +481,17 @@ frontend/
 - ✅ Backers can reclaim funds if project fails
 - ✅ Deadline-based refund mechanism
 - ✅ Complete crowdfunding lifecycle
+- ✅ Owners can post jobs to projects
+- ✅ Jobs stored with Walrus CIDs
 - ⏳ Getter functions pending
-- ⏳ Jobs/Polls pending
+- ⏳ Job management (update/delete) pending
+- ⏳ Poll system pending
 
 ---
 
-**Last Updated**: Prompt 12 completion
+**Last Updated**: Prompt 13 completion
 **Network**: Sui Testnet
 **Build**: Successful
-**Tests**: 22/22 passing
-**Lines of Code**: ~448 (module) + ~999 (tests)
+**Tests**: 27/27 passing
+**Lines of Code**: ~525 (module) + ~1217 (tests)
 

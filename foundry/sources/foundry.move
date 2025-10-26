@@ -59,9 +59,9 @@ module foundry::foundry {
         /// Key: contributor address, Value: contribution amount in MIST
         contributors: Table<address, u64>,
         
-        /// Table storing jobs/tasks for the project (to be implemented)
-        /// Key: job ID, Value: Job struct (placeholder for future implementation)
-        jobs: Table<u64, JobPlaceholder>,
+        /// Table storing jobs/tasks for the project
+        /// Key: job ID, Value: Job struct
+        jobs: Table<u64, Job>,
         
         /// Table storing polls/voting items for the project (to be implemented)
         /// Key: poll ID, Value: Poll struct (placeholder for future implementation)
@@ -77,9 +77,20 @@ module foundry::foundry {
         is_withdrawn: bool,
     }
 
-    /// Placeholder struct for Job functionality (to be implemented in future prompts)
-    public struct JobPlaceholder has store, drop {
-        placeholder: bool,
+    /// Job struct representing a job posting within a crowdfunding project
+    /// 
+    /// Jobs allow project owners to post opportunities, tasks, or positions related
+    /// to their funded project. The description is stored off-chain via Walrus.
+    public struct Job has store, drop {
+        /// Unique identifier for the job (matches the table key)
+        id: u64,
+        
+        /// Title of the job/task
+        title: String,
+        
+        /// Walrus Content Identifier (CID) for detailed job description
+        /// Stores reference to JSON with full job details, requirements, etc.
+        description_cid: String,
     }
 
     /// Placeholder struct for Poll functionality (to be implemented in future prompts)
@@ -134,6 +145,14 @@ module foundry::foundry {
         project_id: address,
         backer: address,
         amount: u64,
+    }
+
+    /// Event emitted when a job is posted to a project
+    public struct JobPosted has copy, drop {
+        project_id: address,
+        job_id: u64,
+        title: String,
+        description_cid: String,
     }
 
     // === Public Functions ===
@@ -191,7 +210,7 @@ module foundry::foundry {
             metadata_cid,
             balance: balance::zero<SUI>(),
             contributors: table::new<address, u64>(ctx),
-            jobs: table::new<u64, JobPlaceholder>(ctx),
+            jobs: table::new<u64, Job>(ctx),
             polls: table::new<u64, PollPlaceholder>(ctx),
             job_counter: 0,
             poll_counter: 0,
@@ -434,6 +453,64 @@ module foundry::foundry {
         
         // Transfer the refund to the backer
         transfer::public_transfer(refund_coin, caller);
+    }
+
+    /// Posts a new job to a crowdfunding project
+    /// 
+    /// Allows project owners to create job postings related to their funded project.
+    /// Job descriptions are stored off-chain via Walrus for detailed content.
+    /// 
+    /// # Arguments
+    /// * `project` - Mutable reference to the Project
+    /// * `title` - Title of the job/task
+    /// * `description_cid` - Walrus Content Identifier for detailed job description
+    /// * `ctx` - Transaction context
+    /// 
+    /// # Returns
+    /// Adds the job to the project's jobs table
+    /// 
+    /// # Aborts
+    /// * `ENotProjectOwner` - If caller is not the project owner
+    /// 
+    /// # Examples
+    /// ```
+    /// // Owner posts a job to their project
+    /// post_job(&mut project, string::utf8(b"Senior Developer"), string::utf8(b"walrus_cid_xyz"), ctx);
+    /// // Job is added to project.jobs table
+    /// ```
+    public fun post_job(
+        project: &mut Project,
+        title: String,
+        description_cid: String,
+        ctx: &mut TxContext
+    ) {
+        // Get caller's address
+        let caller = tx_context::sender(ctx);
+        
+        // Verify caller is the project owner
+        assert!(caller == project.owner, ENotProjectOwner);
+        
+        // Increment job counter to get new job ID
+        let job_id = project.job_counter;
+        project.job_counter = project.job_counter + 1;
+        
+        // Create new Job
+        let job = Job {
+            id: job_id,
+            title,
+            description_cid,
+        };
+        
+        // Add job to project's jobs table
+        table::add(&mut project.jobs, job_id, job);
+        
+        // Emit job posted event
+        event::emit(JobPosted {
+            project_id: object::uid_to_address(&project.id),
+            job_id,
+            title,
+            description_cid,
+        });
     }
 
     // === Private Functions ===
