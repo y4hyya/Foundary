@@ -1,6 +1,12 @@
 # Markdown files
 *.md
 
+# Environment files (contains sensitive config)
+.env
+.env.save
+.env.local
+.env.*.local
+
 # Frontend
 frontend/node_modules
 frontend/dist

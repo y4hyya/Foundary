@@ -1,0 +1,290 @@
+# Foundry Smart Contract Deployment Guide
+
+## Prerequisites
+
+1. **Sui CLI Installed**
+   ```bash
+   sui --version
+   ```
+
+2. **Wallet Configured for Testnet**
+   ```bash
+   sui client active-env
+   # Should show: testnet
+   ```
+
+3. **Sufficient SUI Balance**
+   ```bash
+   sui client gas
+   # You need at least 0.5 SUI for deployment
+   ```
+
+   If you need testnet SUI:
+   ```bash
+   sui client faucet
+   ```
+
+---
+
+## Deployment Steps
+
+### Step 1: Navigate to Project Directory
+
+```bash
+cd /Users/yahya/Desktop/Foundary/foundry
+```
+
+### Step 2: Build the Contract
+
+```bash
+sui move build
+```
+
+Expected output:
+```
+INCLUDING DEPENDENCY Sui
+INCLUDING DEPENDENCY MoveStdlib
+BUILDING foundry
+```
+
+### Step 3: Run Tests (Optional but Recommended)
+
+```bash
+sui move test
+```
+
+Expected output:
+```
+Running Move unit tests
+Test result: OK. Total tests: 50; passed: 50; failed: 0
+```
+
+### Step 4: Publish to Testnet
+
+```bash
+sui client publish --gas-budget 500000000
+```
+
+**Important**: This command will:
+- Compile the contract
+- Deploy to Sui Testnet
+- Show transaction digest
+- Display created objects and Package ID
+
+### Step 5: Save Deployment Information
+
+From the publish output, you'll see something like:
+
+```
+╭─────────────────────────────────────────────────────────────────────╮
+│ Object Changes                                                      │
+├─────────────────────────────────────────────────────────────────────┤
+│ Created Objects:                                                    │
+│  ┌──                                                                │
+│  │ ObjectID: 0xabcdef...                                           │
+│  │ Sender: 0x96e96f651de50203595a8773a1f9b02a4e97c40a1a1e239...   │
+│  │ Owner: Immutable                                                 │
+│  │ ObjectType: 0x2::package::UpgradeCap                            │
+│  │ Version: 1                                                       │
+│  └──                                                                │
+│                                                                      │
+│ Published Objects:                                                   │
+│  ┌──                                                                │
+│  │ PackageID: 0x1234567890abcdef1234567890abcdef1234567890...      │
+│  │ Version: 1                                                       │
+│  │ Digest: ABC123...                                               │
+│  │ Modules: foundry                                                 │
+│  └──                                                                │
+╰─────────────────────────────────────────────────────────────────────╯
+```
+
+**Extract the following:**
+
+1. **Package ID**: Look for "PackageID" in "Published Objects"
+   - Format: `0x...` (64 characters)
+   - Example: `0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef`
+
+2. **Object Types**: Constructed as `PACKAGE_ID::foundry::StructName`
+   - Project: `0x1234...::foundry::Project`
+   - Contribution: `0x1234...::foundry::Contribution`
+   - Feedback: `0x1234...::foundry::Feedback`
+
+### Step 6: Update .env File
+
+```bash
+cd /Users/yahya/Desktop/Foundary
+cp .env.template .env
+```
+
+Edit `.env` and fill in the values:
+
+```bash
+PACKAGE_ID=0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+PROJECT_TYPE=0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef::foundry::Project
+CONTRIBUTION_TYPE=0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef::foundry::Contribution
+FEEDBACK_TYPE=0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef::foundry::Feedback
+```
+
+### Step 7: Verify Deployment
+
+You can verify the deployment on Sui Explorer:
+
+**Testnet Explorer**:
+```
+https://suiscan.xyz/testnet/object/YOUR_PACKAGE_ID
+```
+
+Or using CLI:
+```bash
+sui client object YOUR_PACKAGE_ID --json
+```
+
+---
+
+## Alternative: Using JSON Output
+
+If you prefer JSON output for parsing:
+
+```bash
+sui client publish --gas-budget 500000000 --json > deployment.json
+```
+
+Then extract Package ID:
+```bash
+cat deployment.json | jq -r '.objectChanges[] | select(.type=="published") | .packageId'
+```
+
+---
+
+## Troubleshooting
+
+### Issue: "Insufficient gas"
+
+**Solution**: Request more testnet SUI
+```bash
+sui client faucet
+```
+
+### Issue: "Certificate error"
+
+**Solution**: This can occur on macOS due to keychain issues. Try:
+```bash
+# Option 1: Update Sui CLI
+cargo install --locked --git https://github.com/MystenLabs/sui.git sui
+
+# Option 2: Use different shell
+bash -c "sui client publish --gas-budget 500000000"
+
+# Option 3: Disable cert verification (not recommended for mainnet)
+export SSL_CERT_FILE=""
+sui client publish --gas-budget 500000000
+```
+
+### Issue: "Build failed"
+
+**Solution**: Make sure you're in the foundry directory:
+```bash
+cd /Users/yahya/Desktop/Foundary/foundry
+sui move build
+```
+
+### Issue: "Module already exists"
+
+**Solution**: You're trying to redeploy. Each deployment creates a new Package ID.
+
+---
+
+## Post-Deployment Checklist
+
+- [ ] Package ID saved to .env
+- [ ] Object types configured in .env
+- [ ] Deployment verified on Sui Explorer
+- [ ] Frontend .env updated (if applicable)
+- [ ] UpgradeCap object ID saved (for future upgrades)
+- [ ] Transaction digest recorded for reference
+
+---
+
+## Next Steps
+
+1. **Update Frontend Configuration**
+   ```bash
+   cd /Users/yahya/Desktop/Foundary/frontend
+   cp ../.env .env
+   ```
+
+2. **Test Contract Interaction**
+   ```bash
+   # Create a test project
+   sui client call \
+     --package YOUR_PACKAGE_ID \
+     --module foundry \
+     --function create_project \
+     --args "test_metadata_cid" 10000000000 1735689600000 \
+     --gas-budget 100000000
+   ```
+
+3. **Build Frontend**
+   ```bash
+   cd /Users/yahya/Desktop/Foundary/frontend
+   npm install
+   npm run dev
+   ```
+
+---
+
+## Important Notes
+
+### Gas Budget
+- **Deployment**: 500000000 MIST (0.5 SUI)
+- **Transactions**: Typically 10000000-100000000 MIST
+
+### Network URLs
+- **Testnet RPC**: https://fullnode.testnet.sui.io:443
+- **Testnet Faucet**: https://faucet.testnet.sui.io/
+- **Testnet Explorer**: https://suiscan.xyz/testnet
+
+### Security
+- Never commit `.env` to version control
+- Add `.env` to `.gitignore`
+- Use different wallets for testnet and mainnet
+- Keep UpgradeCap secure for contract upgrades
+
+---
+
+## Contract Information
+
+**Module Name**: `foundry`
+**Main Functions**:
+- `create_project()` - Create a new crowdfunding project
+- `fund_project()` - Fund a project
+- `claim_funds()` - Owner claims funds after goal met
+- `reclaim_funds()` - Backers reclaim if project fails
+- `post_job()` - Post a job opportunity
+- `create_poll()` - Create a voting poll
+- `vote_on_poll()` - Vote on a poll
+- `submit_feedback()` - Submit feedback to owner
+
+**Total Tests**: 50 (all passing)
+**Build Status**: ✅ Successful
+**Network**: Sui Testnet
+
+---
+
+## Support
+
+If you encounter issues:
+
+1. Check Sui CLI version: `sui --version`
+2. Check active network: `sui client active-env`
+3. Check gas balance: `sui client gas`
+4. Review error messages carefully
+5. Consult Sui documentation: https://docs.sui.io
+
+---
+
+**Last Updated**: Prompt 17 completion
+**Contract Version**: 1.0.0
+**Total Lines**: ~3370 (module + tests)
+**Deployment Network**: Sui Testnet
+
