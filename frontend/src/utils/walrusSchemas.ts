@@ -145,6 +145,28 @@ export function createFeedbackMessage(data: {
 }
 
 /**
+ * Creates a PollData object with proper defaults and validation
+ */
+export function createPollData(data: {
+  question: string;
+  description?: string;
+  options: string[];
+  allowMultipleVotes?: boolean;
+  expiresAt?: number;
+}): PollData {
+  return {
+    question: data.question.trim(),
+    description: data.description?.trim() || undefined,
+    options: data.options.map(option => option.trim()).filter(option => option.length > 0),
+    allowMultipleVotes: data.allowMultipleVotes || false,
+    isActive: true,
+    expiresAt: data.expiresAt || undefined,
+    version: '1.0.0',
+    createdAt: Date.now(),
+  };
+}
+
+/**
  * Validates a ProjectMetadata object
  */
 export function validateProjectMetadata(metadata: any): metadata is ProjectMetadata {

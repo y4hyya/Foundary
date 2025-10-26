@@ -15,9 +15,10 @@ import { getCategoryLabel, formatDeadline } from '../utils/walrusSchemas';
 import FundingWidget from '../components/FundingWidget';
 import ClaimReclaimWidget from '../components/ClaimReclaimWidget';
 import JobsTab from '../components/JobsTab';
+import GovernanceTab from '../components/GovernanceTab';
 import './ProjectDetail.css';
 
-type TabType = 'details' | 'updates' | 'backers' | 'comments' | 'jobs';
+type TabType = 'details' | 'updates' | 'backers' | 'comments' | 'jobs' | 'governance';
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -202,6 +203,12 @@ export default function ProjectDetail() {
             >
               Jobs
             </button>
+            <button
+              className={`tab ${activeTab === 'governance' ? 'active' : ''}`}
+              onClick={() => setActiveTab('governance')}
+            >
+              Governance
+            </button>
           </div>
 
           {/* Tab Content */}
@@ -360,6 +367,16 @@ export default function ProjectDetail() {
 
             {activeTab === 'jobs' && (
               <JobsTab 
+                project={project} 
+                onSuccess={() => {
+                  // Refetch project data to update any changes
+                  refetch();
+                }}
+              />
+            )}
+
+            {activeTab === 'governance' && (
+              <GovernanceTab 
                 project={project} 
                 onSuccess={() => {
                   // Refetch project data to update any changes

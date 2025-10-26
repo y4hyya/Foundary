@@ -1,0 +1,320 @@
+/* Governance Tab Styles */
+
+.governance-tab {
+  padding: 0;
+}
+
+/* Header */
+.governance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.governance-title-section h2 {
+  font-size: 28px;
+  font-weight: 800;
+  color: #2c3e50;
+  margin: 0 0 8px 0;
+}
+
+.governance-title-section p {
+  font-size: 16px;
+  color: #7f8c8d;
+  margin: 0;
+}
+
+.create-poll-btn {
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.create-poll-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+}
+
+.create-poll-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Voting Rights Info */
+.voting-rights-info {
+  margin-bottom: 24px;
+}
+
+.rights-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  animation: slideInDown 0.4s ease;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rights-badge.can-vote {
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  color: #2e7d32;
+  border: 2px solid #4caf50;
+}
+
+.rights-badge.cannot-vote {
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+  color: #f57c00;
+  border: 2px solid #ff9800;
+}
+
+.rights-icon {
+  font-size: 20px;
+}
+
+/* Error State */
+.error-message {
+  background: #fff5f5;
+  border: 2px solid #ffcdd2;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #c62828;
+  animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.error-icon {
+  font-size: 20px;
+}
+
+.error-content {
+  flex: 1;
+}
+
+.error-content p {
+  margin: 0 0 8px 0;
+  font-weight: 600;
+}
+
+.retry-btn {
+  padding: 6px 12px;
+  background: #c62828;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.retry-btn:hover {
+  background: #b71c1c;
+}
+
+/* Loading State */
+.loading-state {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-state p {
+  color: #7f8c8d;
+  font-size: 16px;
+  margin: 0;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 80px 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  display: block;
+}
+
+.empty-state h3 {
+  font-size: 24px;
+  color: #2c3e50;
+  margin: 0 0 12px 0;
+}
+
+.empty-state p {
+  color: #7f8c8d;
+  margin: 0 0 24px 0;
+  line-height: 1.6;
+}
+
+/* Polls List */
+.polls-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Buttons */
+.btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.btn-secondary {
+  background: white;
+  color: #7f8c8d;
+  border: 2px solid #e0e0e0;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .governance-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .create-poll-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .rights-badge {
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+
+  .empty-state {
+    padding: 60px 20px;
+  }
+
+  .empty-icon {
+    font-size: 48px;
+  }
+
+  .empty-state h3 {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .governance-title-section h2 {
+    font-size: 24px;
+  }
+
+  .rights-badge {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+  }
+
+  .empty-state {
+    padding: 40px 20px;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .rights-badge {
+    border-width: 3px;
+  }
+  
+  .btn {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .rights-badge {
+    animation: none;
+  }
+  
+  .btn:hover:not(:disabled) {
+    transform: none;
+  }
+  
+  .spinner {
+    animation: none;
+  }
+}
