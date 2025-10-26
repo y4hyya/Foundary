@@ -1,0 +1,258 @@
+# Contribution Design Document
+
+## Overview
+
+The Contribution struct serves as an NFT-like receipt that contributors receive when they fund a project. This design enables proof of participation, voting rights, and reward distribution.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Foundry System                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌─────────────────────┐           ┌───────────────────┐   │
+│  │  Project            │           │  Contribution     │   │
+│  │  (has key, store)   │◄──────────│  (has key, store) │   │
+│  ├─────────────────────┤           ├───────────────────┤   │
+│  │ id: UID             │           │ id: UID           │   │
+│  │ owner: address      │           │ project_id: ID ───┼───┘
+│  │ funding_goal: u64   │           │ backer: address   │
+│  │ current_funding: u64│           │ amount: u64       │
+│  │ deadline: u64       │           └───────────────────┘
+│  │ metadata_cid: String│                     │
+│  │ balance: Balance    │                     │
+│  │ contributors: Table │                     │
+│  │ jobs: Table         │                     ▼
+│  │ polls: Table        │           ┌───────────────────┐
+│  └─────────────────────┘           │ Backer's Wallet   │
+│                                    └───────────────────┘
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Contribution Struct Definition
+
+```move
+public struct Contribution has key, store {
+    id: UID,                 // Unique identifier
+    project_id: ID,          // Reference to Project
+    backer_address: address, // Contributor's address
+    amount: u64,             // Contribution amount in MIST
+}
+```
+
+## Capabilities
+
+### `has key`
+- The Contribution can be owned and transferred
+- Stored as a standalone object on the blockchain
+- Has its own unique object ID
+
+### `has store`
+- Can be stored inside other objects
+- Can be transferred between addresses
+- Enables composition with other structs
+
+## Data Flow
+
+### When a User Contributes:
+
+```
+1. User calls contribute(project, payment)
+   │
+   ├─> Project receives SUI tokens
+   │   └─> Updates balance
+   │   └─> Updates current_funding
+   │   └─> Records in contributors table
+   │
+   └─> Create Contribution object
+       ├─> Generate new UID
+       ├─> Store project's ID
+       ├─> Record backer's address
+       ├─> Record contribution amount
+       └─> Transfer to backer's wallet
+```
+
+### Contribution Lifecycle:
+
+```
+┌──────────────┐
+│   Created    │ ─── When user contributes to a project
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│    Owned     │ ─── Stored in contributor's wallet
+└──────┬───────┘
+       │
+       ├─────► Used for voting (if polls are active)
+       │
+       ├─────► Checked for rewards/benefits
+       │
+       ├─────► Proof of participation
+       │
+       └─────► Can be transferred or sold (secondary market)
+```
+
+## Use Cases
+
+### 1. Proof of Participation
+Contributors can prove they backed a project by showing their Contribution object:
+- Display in wallet as NFT-like receipt
+- Show contribution history
+- Prove early supporter status
+
+### 2. Voting Rights
+Contributions can grant voting power in project polls:
+- Vote weight proportional to contribution amount
+- One Contribution = one vote OR weighted by amount
+- Must own Contribution to vote
+
+### 3. Reward Distribution
+Projects can reward contributors based on their Contributions:
+```
+if (contribution.amount >= THRESHOLD) {
+    // Grant special benefits
+    // Distribute rewards
+    // Early access to products
+}
+```
+
+### 4. Refunds (if project fails)
+If funding goal is not met by deadline:
+- Contributors can use Contribution as proof
+- Redeem for refund
+- Contribution burned after refund
+
+### 5. Secondary Market
+Contributors can trade their Contributions:
+- Transfer to another address
+- Sell on NFT marketplaces
+- Transfer voting rights
+
+## Relationship with Project
+
+### Project → Contribution: One-to-Many
+
+One Project can have multiple Contributions:
+```
+Project (0x123...)
+  ├─> Contribution #1 (Backer A, 100 SUI)
+  ├─> Contribution #2 (Backer B, 50 SUI)
+  ├─> Contribution #3 (Backer A, 25 SUI)  // Same backer, multiple contributions
+  └─> Contribution #4 (Backer C, 200 SUI)
+```
+
+### Project tracks total funding:
+- `current_funding` field accumulates all contributions
+- `contributors` Table tracks per-address totals
+- Individual Contributions track specific backing events
+
+## Querying Contributions
+
+### By Project
+```move
+// Get all contributions for a project (via indexer)
+let contributions = get_contributions_by_project_id(project_id);
+```
+
+### By Backer
+```move
+// Get all contributions by a specific backer (via wallet)
+let my_contributions = wallet.get_objects_by_type<Contribution>();
+```
+
+### By Amount
+```move
+// Check if backer contributed minimum amount
+if (contribution.amount >= MIN_AMOUNT) {
+    // Grant special privileges
+}
+```
+
+## Comparison with Alternatives
+
+### Why separate Contribution objects vs. only tracking in Project?
+
+#### ✅ With Contribution Objects (Current Design):
+- Contributors get proof in their wallet
+- Can be used for voting/rewards independently
+- Transferable and tradeable
+- Better UX (visible in wallet)
+- Enables secondary market
+- More composable
+
+#### ❌ Only Table in Project:
+- No receipt for contributors
+- Can't transfer backing
+- No secondary market
+- Less composable
+- Harder to implement voting
+- Poor UX (just a table entry)
+
+## Security Considerations
+
+### 1. Immutability
+- Amount cannot be changed after creation
+- Project ID cannot be modified
+- Backer address is permanent
+
+### 2. Double-spending Prevention
+- Each contribution creates new object
+- Can't duplicate Contribution objects
+- Project tracks total funding separately
+
+### 3. Access Control
+- Only contribution owner can transfer
+- Project owner cannot seize Contributions
+- Voting rights tied to ownership
+
+## Frontend Integration
+
+### Display in UI
+```typescript
+interface ContributionDisplay {
+  id: string;
+  projectId: string;
+  projectTitle: string; // Fetch from project metadata
+  amount: number;       // Convert from MIST to SUI
+  date: Date;          // From transaction timestamp
+  status: 'active' | 'refunded' | 'completed';
+}
+```
+
+### Fetch User's Contributions
+```typescript
+import { useOwnedObjects } from '@mysten/dapp-kit';
+
+function MyContributions() {
+  const { data: contributions } = useOwnedObjects({
+    filter: { StructType: '0x{package}::foundry::Contribution' }
+  });
+  
+  return contributions.map(c => <ContributionCard {...c} />);
+}
+```
+
+## Future Enhancements
+
+### Potential Extensions:
+1. **Contribution Levels**: Bronze, Silver, Gold based on amount
+2. **Early Bird Bonus**: Track contribution order number
+3. **Rewards Distribution**: Distribute tokens/NFTs to holders
+4. **Staking**: Lock Contributions for extra benefits
+5. **Merging**: Combine multiple contributions into one
+6. **Splitting**: Split large contribution into smaller ones
+
+## Summary
+
+The Contribution struct is a crucial component that:
+- ✅ Provides tangible proof of backing
+- ✅ Enables voting and governance
+- ✅ Facilitates reward distribution
+- ✅ Creates better user experience
+- ✅ Opens secondary market opportunities
+- ✅ Maintains security and immutability
+
+This design pattern follows best practices in web3 crowdfunding platforms and provides a solid foundation for the Foundry ecosystem.
+

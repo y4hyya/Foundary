@@ -1,0 +1,295 @@
+# Foundry Module - Structs Summary
+
+## Complete Struct Definitions
+
+### 1. Project (Main Crowdfunding Campaign)
+
+```move
+public struct Project has key, store {
+    // Core Identity
+    id: UID,                                    // Unique project identifier
+    owner: address,                             // Project creator
+    
+    // Funding Details
+    funding_goal: u64,                          // Target amount (MIST)
+    current_funding: u64,                       // Amount raised (MIST)
+    deadline: u64,                              // Unix timestamp (ms)
+    
+    // Metadata
+    metadata_cid: String,                       // Walrus CID → JSON metadata
+    
+    // Financial Management
+    balance: Balance<SUI>,                      // Holds contributed SUI
+    contributors: Table<address, u64>,          // Address → Total contributed
+    
+    // Dynamic Content
+    jobs: Table<u64, JobPlaceholder>,          // Job ID → Job details
+    polls: Table<u64, PollPlaceholder>,        // Poll ID → Poll details
+    job_counter: u64,                          // Next job ID
+    poll_counter: u64,                         // Next poll ID
+    
+    // State Management
+    is_withdrawn: bool,                        // Funds withdrawn?
+}
+```
+
+**Size:** 13 fields
+**Capabilities:** `has key, store`
+
+---
+
+### 2. Contribution (Backing Receipt)
+
+```move
+public struct Contribution has key, store {
+    id: UID,                    // Unique contribution ID
+    project_id: ID,             // Reference to Project.id
+    backer_address: address,    // Contributor's wallet
+    amount: u64,                // Contribution amount (MIST)
+}
+```
+
+**Size:** 4 fields
+**Capabilities:** `has key, store`
+
+---
+
+### 3. JobPlaceholder (Temporary)
+
+```move
+public struct JobPlaceholder has store, drop {
+    placeholder: bool,
+}
+```
+
+**Purpose:** Placeholder for future Job functionality
+**Capabilities:** `has store, drop`
+
+---
+
+### 4. PollPlaceholder (Temporary)
+
+```move
+public struct PollPlaceholder has store, drop {
+    placeholder: bool,
+}
+```
+
+**Purpose:** Placeholder for future Poll functionality
+**Capabilities:** `has store, drop`
+
+---
+
+## Event Structs
+
+### ProjectCreated
+```move
+public struct ProjectCreated has copy, drop {
+    project_id: address,
+    owner: address,
+    funding_goal: u64,
+    deadline: u64,
+    metadata_cid: String,
+}
+```
+
+### ContributionMade
+```move
+public struct ContributionMade has copy, drop {
+    project_id: address,
+    contributor: address,
+    amount: u64,
+    total_funded: u64,
+}
+```
+
+### FundsWithdrawn
+```move
+public struct FundsWithdrawn has copy, drop {
+    project_id: address,
+    owner: address,
+    amount: u64,
+}
+```
+
+---
+
+## Relationships
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                     Project Object                        │
+│  ┌────────────────────────────────────────────────────┐ │
+│  │ id: UID (0x123abc...)                              │ │
+│  │ owner: 0xABCD...                                   │ │
+│  │ funding_goal: 10000000000000 (10,000 SUI)         │ │
+│  │ current_funding: 2500000000000 (2,500 SUI)        │ │
+│  │ deadline: 1735689600000                            │ │
+│  │ metadata_cid: "walrus_blob_xyz"                    │ │
+│  │ balance: Balance<SUI>                              │ │
+│  │ contributors: {                                     │ │
+│  │   0xBACKER1 => 1000000000000,                      │ │
+│  │   0xBACKER2 => 500000000000,                       │ │
+│  │   0xBACKER3 => 1000000000000                       │ │
+│  │ }                                                   │ │
+│  │ jobs: {}                                           │ │
+│  │ polls: {}                                          │ │
+│  │ job_counter: 0                                     │ │
+│  │ poll_counter: 0                                    │ │
+│  │ is_withdrawn: false                                │ │
+│  └────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────┘
+                            │
+                            │ Referenced by project_id
+                            ▼
+        ┌───────────────────────────────────────┐
+        │                                       │
+        │                                       │
+┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+│ Contribution  │   │ Contribution  │   │ Contribution  │
+│               │   │               │   │               │
+│ project_id:   │   │ project_id:   │   │ project_id:   │
+│  0x123abc...  │   │  0x123abc...  │   │  0x123abc...  │
+│ backer:       │   │ backer:       │   │ backer:       │
+│  0xBACKER1    │   │  0xBACKER2    │   │  0xBACKER3    │
+│ amount:       │   │ amount:       │   │ amount:       │
+│  1000 SUI     │   │  500 SUI      │   │  1000 SUI     │
+└───────────────┘   └───────────────┘   └───────────────┘
+       │                   │                   │
+       └───────────────────┴───────────────────┘
+                          │
+                          ▼
+              ┌──────────────────────┐
+              │  Contributors'       │
+              │  Wallets             │
+              └──────────────────────┘
+```
+
+---
+
+## Data Storage Comparison
+
+### On-Chain (Sui Blockchain)
+- Project struct with all fields
+- Contribution objects (one per backing)
+- Tables for contributors, jobs, polls
+- Balance holding actual SUI tokens
+
+### Off-Chain (Walrus Storage)
+- Project metadata JSON:
+  ```json
+  {
+    "title": "Revolutionary DeFi Platform",
+    "description": "Full description...",
+    "category": "DeFi",
+    "imageUrl": "https://...",
+    "tags": ["blockchain", "finance"]
+  }
+  ```
+
+**Referenced by:** `Project.metadata_cid` field
+
+---
+
+## Size Estimates
+
+### Project Object
+- Fixed fields: ~200 bytes
+- Contributors table: ~65 bytes per entry
+- Jobs table: ~65 bytes per job
+- Polls table: ~65 bytes per poll
+- Balance: ~32 bytes
+
+**Example:** 100 contributors, 5 jobs, 3 polls ≈ 7KB
+
+### Contribution Object
+- Fixed fields: ~100 bytes
+
+**Example:** 100 contributions ≈ 10KB total
+
+---
+
+## Implementation Checklist
+
+### ✅ Completed
+- [x] Project struct definition
+- [x] Contribution struct definition
+- [x] Placeholder structs (Job, Poll)
+- [x] Event structs
+- [x] Error constants
+- [x] Module compilation
+
+### ⏳ Pending
+- [ ] create_project() function
+- [ ] contribute() function
+- [ ] withdraw_funds() function
+- [ ] Getter functions
+- [ ] Job implementation
+- [ ] Poll implementation
+- [ ] Testing suite
+- [ ] Frontend integration
+
+---
+
+## Key Design Decisions
+
+### 1. Why separate Contribution objects?
+- Provides tangible receipt to backers
+- Enables voting and governance
+- Tradeable and transferable
+- Better UX (visible in wallet)
+
+### 2. Why use Tables for contributors?
+- Dynamic size (can grow indefinitely)
+- Efficient lookup by address
+- Lower gas costs than vectors
+- Supports large projects
+
+### 3. Why store metadata off-chain?
+- Reduces on-chain storage costs
+- Allows rich metadata (images, long text)
+- Metadata can be updated via new CID
+- Walrus provides decentralized storage
+
+### 4. Why Balance<SUI> instead of just u64?
+- Type safety (can't confuse with other u64s)
+- Sui's balance module handles transfers
+- Built-in overflow protection
+- Standard pattern in Sui Move
+
+---
+
+## Gas Cost Estimates (Testnet)
+
+### Project Creation
+- Create Project object: ~0.001 SUI
+- Initialize tables: ~0.0005 SUI
+- Emit event: ~0.0001 SUI
+**Total:** ~0.0016 SUI
+
+### Contribution
+- Create Contribution object: ~0.0008 SUI
+- Update Project tables: ~0.0003 SUI
+- Transfer SUI: ~0.0002 SUI
+- Emit event: ~0.0001 SUI
+**Total:** ~0.0014 SUI per contribution
+
+### Withdrawal
+- Transfer balance: ~0.0003 SUI
+- Update state: ~0.0002 SUI
+- Emit event: ~0.0001 SUI
+**Total:** ~0.0006 SUI
+
+*Note: Actual costs may vary based on network conditions*
+
+---
+
+## Module Status
+
+**Version:** 0.1.0
+**Build Status:** ✅ Compiles successfully
+**Network:** Sui Testnet
+**Dependencies:** Sui Framework, Move Standard Library
+
+**Ready for:** Function implementation (Prompt 9+)
+

@@ -4,7 +4,7 @@
 /// Enables creation of funding projects, contributor management, and dynamic content (jobs/polls).
 module foundry::foundry {
     // === Imports ===
-    use sui::object::{Self, UID};
+    use sui::object::{Self, UID, ID};
     use sui::tx_context::{Self, TxContext};
     use sui::table::{Self, Table};
     use std::string::String;
@@ -82,6 +82,24 @@ module foundry::foundry {
     /// Placeholder struct for Poll functionality (to be implemented in future prompts)
     public struct PollPlaceholder has store, drop {
         placeholder: bool,
+    }
+
+    /// Contribution struct - Serves as a receipt/proof of backing
+    /// 
+    /// This object is transferred to contributors as a receipt when they fund a project.
+    /// It can be used to prove participation, claim rewards, or exercise voting rights.
+    public struct Contribution has key, store {
+        /// Unique identifier for the contribution receipt
+        id: UID,
+        
+        /// Reference to the Project's UID that this contribution is for
+        project_id: ID,
+        
+        /// Address of the backer who made the contribution
+        backer_address: address,
+        
+        /// Amount contributed in MIST (1 SUI = 1_000_000_000 MIST)
+        amount: u64,
     }
 
     /// Event emitted when a new project is created

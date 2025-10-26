@@ -80,6 +80,42 @@ A decentralized crowdfunding platform built on Sui blockchain with Walrus storag
     - Flag indicating if funds have been withdrawn by owner
     - Prevents double withdrawal
 
+## Contribution Struct
+
+### Contribution (Receipt/Proof of Backing)
+
+**Capabilities:** `has key, store`
+
+A standalone object that serves as a receipt or proof of backing for contributors.
+This object is transferred to the contributor's wallet when they fund a project.
+
+#### Fields
+
+1. **id: UID**
+   - Unique identifier for the contribution receipt
+   - Managed by Sui object system
+
+2. **project_id: ID**
+   - Reference to the Project's UID that this contribution is for
+   - Links the contribution to the specific project
+   - Allows querying all contributions for a project
+
+3. **backer_address: address**
+   - Address of the backer who made the contribution
+   - Used for identity verification and reward claims
+
+4. **amount: u64**
+   - Amount contributed in MIST (1 SUI = 1_000_000_000 MIST)
+   - Immutable record of contribution size
+
+#### Use Cases
+
+- **Proof of Participation**: Contributors can prove they backed a project
+- **Voting Rights**: May be used to grant voting power in polls
+- **Rewards/Benefits**: Can be checked to distribute rewards
+- **NFT-like Receipt**: Can be displayed in wallets as proof of support
+- **Historical Record**: Permanent on-chain record of backing
+
 ## Placeholder Structs
 
 ### JobPlaceholder
@@ -118,6 +154,7 @@ A decentralized crowdfunding platform built on Sui blockchain with Walrus storag
 ## Implementation Status
 
 ✅ Project struct defined with all required fields
+✅ Contribution struct defined as receipt/proof of backing
 ✅ Table types configured for dynamic content (jobs, polls)
 ✅ Walrus metadata_cid integration
 ✅ Event structs defined
