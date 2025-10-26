@@ -1,0 +1,144 @@
+# Foundry Project Structure Documentation
+
+## Module: foundry::foundry
+
+A decentralized crowdfunding platform built on Sui blockchain with Walrus storage integration.
+
+## Core Struct: Project
+
+### Capabilities
+- `has key` - Can be stored as an object on Sui blockchain
+- `has store` - Can be stored inside other objects
+
+### Fields
+
+#### Required Fields (As Specified)
+
+1. **id: UID**
+   - Unique identifier for the project
+   - Managed by Sui object system
+
+2. **owner: address**
+   - Address of the project creator/owner
+   - Used for authorization checks
+
+3. **funding_goal: u64**
+   - Target funding amount in MIST (1 SUI = 1_000_000_000 MIST)
+   - Immutable after project creation
+
+4. **current_funding: u64**
+   - Current amount of funds raised in MIST
+   - Updated as contributions come in
+
+5. **deadline: u64**
+   - Project deadline as Unix timestamp in milliseconds
+   - Determined using Sui Clock object
+
+6. **metadata_cid: String**
+   - Walrus Content Identifier (CID) for project metadata
+   - References JSON data stored on Walrus containing:
+     * Project title
+     * Description
+     * Category
+     * Images
+     * Additional metadata
+
+#### Dynamic Content Fields (Table Types)
+
+7. **jobs: Table<u64, JobPlaceholder>**
+   - Table storing jobs/tasks for the project
+   - Key: job ID (u64)
+   - Value: Job struct (placeholder for future implementation)
+   - Allows dynamic addition of jobs after project creation
+
+8. **polls: Table<u64, PollPlaceholder>**
+   - Table storing polls/voting items for the project
+   - Key: poll ID (u64)
+   - Value: Poll struct (placeholder for future implementation)
+   - Enables community voting and governance
+
+#### Additional Fields
+
+9. **balance: Balance<SUI>**
+   - Balance holding the actual SUI tokens contributed
+   - Managed by Sui balance module
+
+10. **contributors: Table<address, u64>**
+    - Tracks all contributors and their contribution amounts
+    - Key: contributor address
+    - Value: contribution amount in MIST
+
+11. **job_counter: u64**
+    - Counter for generating unique job IDs
+    - Incremented when new jobs are added
+
+12. **poll_counter: u64**
+    - Counter for generating unique poll IDs
+    - Incremented when new polls are created
+
+13. **is_withdrawn: bool**
+    - Flag indicating if funds have been withdrawn by owner
+    - Prevents double withdrawal
+
+## Placeholder Structs
+
+### JobPlaceholder
+- Temporary struct for job functionality
+- Has `store, drop` capabilities
+- Will be replaced with full Job struct in future prompts
+
+### PollPlaceholder
+- Temporary struct for poll functionality
+- Has `store, drop` capabilities
+- Will be replaced with full Poll struct in future prompts
+
+## Events
+
+### ProjectCreated
+- Emitted when a new project is created
+- Fields: project_id, owner, funding_goal, deadline, metadata_cid
+
+### ContributionMade
+- Emitted when a contribution is made
+- Fields: project_id, contributor, amount, total_funded
+
+### FundsWithdrawn
+- Emitted when project owner withdraws funds
+- Fields: project_id, owner, amount
+
+## Error Constants
+
+- EInvalidFundingGoal (1) - Invalid funding goal amount
+- EDeadlinePassed (2) - Deadline has already passed
+- ENotProjectOwner (3) - Caller is not the project owner
+- EFundingGoalNotMet (4) - Funding goal not reached
+- EProjectAlreadyFunded (5) - Project already fully funded
+- EInsufficientFunds (6) - Insufficient funds for operation
+
+## Implementation Status
+
+✅ Project struct defined with all required fields
+✅ Table types configured for dynamic content (jobs, polls)
+✅ Walrus metadata_cid integration
+✅ Event structs defined
+✅ Error constants defined
+⏳ Public functions (to be implemented in subsequent prompts)
+⏳ Private functions (to be implemented in subsequent prompts)
+⏳ Job functionality (to be implemented)
+⏳ Poll functionality (to be implemented)
+
+## Build Status
+
+✅ Module compiles successfully
+⚠️ Warnings present (expected - functions not yet implemented)
+
+## Next Steps
+
+1. Implement project creation function
+2. Implement contribution function
+3. Implement withdrawal function
+4. Implement getter functions
+5. Add Job struct and functions
+6. Add Poll struct and functions
+7. Write comprehensive tests
+
