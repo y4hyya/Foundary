@@ -2087,4 +2087,442 @@ module foundry::foundry_tests {
         
         ts::end(scenario);
     }
+
+    // ========================
+    // Submit Feedback Tests
+    // ========================
+
+    #[test]
+    fun test_submit_feedback_success() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"walrus_cid_123"),
+                10_000_000_000,
+                1735689600000,
+                ctx
+            );
+        };
+        
+        // Backer funds project
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Backer submits feedback
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::submit_feedback(
+                &project,
+                &contribution,
+                string::utf8(b"walrus_cid_feedback_abc"),
+                ctx
+            );
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        // Owner should receive feedback
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            assert!(ts::has_most_recent_for_sender<foundry::Feedback>(&scenario), 0);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 9)] // EInvalidContribution
+    fun test_submit_feedback_wrong_project() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create first project
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"walrus_cid_123"),
+                10_000_000_000,
+                1735689600000,
+                ctx
+            );
+        };
+        
+        // Create second project
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"walrus_cid_456"),
+                20_000_000_000,
+                1735689600000,
+                ctx
+            );
+        };
+        
+        // Backer funds first project
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project1 = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project1, payment, ctx);
+            ts::return_to_address(CREATOR, project1);
+        };
+        
+        // Backer tries to submit feedback on second project with contribution from first project
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let project1 = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let project2 = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            // This should fail - contribution is for project1, not project2
+            foundry::submit_feedback(
+                &project2,
+                &contribution,
+                string::utf8(b"walrus_cid_feedback"),
+                ctx
+            );
+            
+            ts::return_to_address(CREATOR, project1);
+            ts::return_to_address(CREATOR, project2);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 9)] // EInvalidContribution
+    fun test_submit_feedback_wrong_backer() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"walrus_cid_123"),
+                10_000_000_000,
+                1735689600000,
+                ctx
+            );
+        };
+        
+        // BACKER1 funds project
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // BACKER2 funds project
+        ts::next_tx(&mut scenario, BACKER2);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(3_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // BACKER2 tries to submit feedback using BACKER1's contribution
+        ts::next_tx(&mut scenario, BACKER2);
+        {
+            let project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let backer1_contribution = ts::take_from_address<foundry::Contribution>(&scenario, BACKER1);
+            let backer2_contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            // This should fail - BACKER2 doesn't own BACKER1's contribution
+            foundry::submit_feedback(
+                &project,
+                &backer1_contribution,
+                string::utf8(b"walrus_cid_feedback"),
+                ctx
+            );
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_address(BACKER1, backer1_contribution);
+            ts::return_to_sender(&scenario, backer2_contribution);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_submit_feedback_multiple_from_same_backer() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"walrus_cid_123"),
+                10_000_000_000,
+                1735689600000,
+                ctx
+            );
+        };
+        
+        // Backer funds project
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Backer submits first feedback
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::submit_feedback(
+                &project,
+                &contribution,
+                string::utf8(b"walrus_cid_feedback_1"),
+                ctx
+            );
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        // Backer submits second feedback
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::submit_feedback(
+                &project,
+                &contribution,
+                string::utf8(b"walrus_cid_feedback_2"),
+                ctx
+            );
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_submit_feedback_multiple_backers() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"walrus_cid_123"),
+                15_000_000_000,
+                1735689600000,
+                ctx
+            );
+        };
+        
+        // BACKER1 funds project
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // BACKER2 funds project
+        ts::next_tx(&mut scenario, BACKER2);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(7_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // BACKER3 funds project
+        ts::next_tx(&mut scenario, BACKER3);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(3_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // BACKER1 submits feedback
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::submit_feedback(
+                &project,
+                &contribution,
+                string::utf8(b"walrus_cid_feedback_backer1"),
+                ctx
+            );
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        // BACKER2 submits feedback
+        ts::next_tx(&mut scenario, BACKER2);
+        {
+            let project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::submit_feedback(
+                &project,
+                &contribution,
+                string::utf8(b"walrus_cid_feedback_backer2"),
+                ctx
+            );
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        // BACKER3 submits feedback
+        ts::next_tx(&mut scenario, BACKER3);
+        {
+            let project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::submit_feedback(
+                &project,
+                &contribution,
+                string::utf8(b"walrus_cid_feedback_backer3"),
+                ctx
+            );
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_submit_feedback_after_voting() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"walrus_cid_123"),
+                10_000_000_000,
+                1735689600000,
+                ctx
+            );
+        };
+        
+        // Backer funds project
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Creator creates poll
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            let mut options = vector::empty<std::string::String>();
+            vector::push_back(&mut options, string::utf8(b"Option A"));
+            vector::push_back(&mut options, string::utf8(b"Option B"));
+            
+            foundry::create_poll(
+                &mut project,
+                string::utf8(b"Which direction?"),
+                options,
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        // Backer votes on poll
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::vote_on_poll(&mut project, 0, &contribution, 0, ctx);
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        // Backer submits feedback
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::submit_feedback(
+                &project,
+                &contribution,
+                string::utf8(b"walrus_cid_feedback_after_vote"),
+                ctx
+            );
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        ts::end(scenario);
+    }
 }

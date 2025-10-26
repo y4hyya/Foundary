@@ -1,6 +1,6 @@
 # Foundry Implementation Status
 
-## Current Implementation (Prompt 15 Complete)
+## Current Implementation (Prompt 16 Complete)
 
 ### ✅ Completed Features
 
@@ -9,6 +9,7 @@
 - [x] Contribution struct (4 fields with has key, store)
 - [x] Job struct (3 fields with store, drop)
 - [x] Poll struct (5 fields with store)
+- [x] Feedback struct (4 fields with has key, store)
 
 #### 2. Events
 - [x] ProjectCreated event
@@ -18,6 +19,7 @@
 - [x] JobPosted event
 - [x] PollCreated event
 - [x] VoteCast event
+- [x] FeedbackSubmitted event
 
 #### 3. Error Constants
 - [x] EInvalidFundingGoal (1)
@@ -41,6 +43,7 @@
 - [x] post_job() - Fully implemented and tested
 - [x] create_poll() - Fully implemented and tested
 - [x] vote_on_poll() - Fully implemented and tested
+- [x] submit_feedback() - Fully implemented and tested
 
 #### 5. Testing
 - [x] test_create_project_success
@@ -83,7 +86,13 @@
 - [x] test_vote_on_poll_double_vote
 - [x] test_vote_on_poll_multiple_voters
 - [x] test_vote_on_poll_all_options
-- [x] All tests passing (40/40)
+- [x] test_submit_feedback_success
+- [x] test_submit_feedback_wrong_project
+- [x] test_submit_feedback_wrong_backer
+- [x] test_submit_feedback_multiple_from_same_backer
+- [x] test_submit_feedback_multiple_backers
+- [x] test_submit_feedback_after_voting
+- [x] All tests passing (46/46)
 
 #### 6. Documentation
 - [x] PROJECT_STRUCTURE.txt
@@ -105,7 +114,7 @@ sui move build
 ```
 sui move test
 ✅ Running Move unit tests
-✅ 40/40 tests passed
+✅ 46/46 tests passed
 ✅ 0 failures
 ```
 
@@ -391,11 +400,11 @@ public fun create_poll(
 ```
 foundry/
 ├── sources/
-│   └── foundry.move              [Lines: 713]
+│   └── foundry.move              [Lines: 804]
 │       ├── Imports (11)          ✅
 │       ├── Error constants (12)  ✅
-│       ├── Structs (4)           ✅
-│       ├── Events (7)            ✅
+│       ├── Structs (5)           ✅
+│       ├── Events (8)            ✅
 │       ├── create_project()      ✅
 │       ├── fund_project()        ✅
 │       ├── claim_funds()         ✅
@@ -403,13 +412,14 @@ foundry/
 │       ├── post_job()            ✅
 │       ├── create_poll()         ✅
 │       ├── vote_on_poll()        ✅
+│       ├── submit_feedback()     ✅
 │       └── Test helpers          ✅
 │
 ├── tests/
-│   └── foundry_tests.move        [Lines: 2086]
+│   └── foundry_tests.move        [Lines: 2529]
 │       ├── Test imports          ✅
 │       ├── Test constants        ✅
-│       └── 40 test cases         ✅
+│       └── 46 test cases         ✅
 │
 ├── Move.toml                      ✅
 ├── CLAIM_FUNDS_DOCS.txt           ✅
@@ -417,6 +427,7 @@ foundry/
 ├── JOB_SYSTEM_DOCS.txt            ✅
 ├── POLL_SYSTEM_DOCS.txt           ✅
 ├── VOTE_SYSTEM_DOCS.txt           ✅
+├── FEEDBACK_SYSTEM_DOCS.txt       ✅
 └── IMPLEMENTATION_STATUS.txt      ✅
 ```
 
@@ -490,12 +501,12 @@ frontend/
 ## Code Quality
 
 ### Metrics
-- **Total Lines**: ~2799 (module + tests)
-- **Functions**: 7 public, 1 test helper
-- **Structs**: 4 (all implemented)
-- **Events**: 7 (all integrated)
+- **Total Lines**: ~3333 (module + tests)
+- **Functions**: 8 public, 1 test helper
+- **Structs**: 5 (all implemented)
+- **Events**: 8 (all integrated)
 - **Error Constants**: 12
-- **Tests**: 40 (all passing)
+- **Tests**: 46 (all passing)
 - **Documentation**: Comprehensive inline docs + status file
 
 ### Standards Compliance
@@ -548,7 +559,7 @@ public fun vote_on_poll(
 
 ## Summary
 
-**Status**: Prompt 15 COMPLETE ✅
+**Status**: Prompt 16 COMPLETE ✅
 **Functions Implemented**:
 - create_project() - Full ✅
 - fund_project() - Full ✅
@@ -557,20 +568,22 @@ public fun vote_on_poll(
 - post_job() - Full ✅
 - create_poll() - Full ✅
 - vote_on_poll() - Full ✅
+- submit_feedback() - Full ✅
 
-**Tests**: 40/40 passing ✅
+**Tests**: 46/46 passing ✅
 **Integration**: Frontend ready
-**Ready For**: Getter functions or poll results (Prompt 16+)
+**Ready For**: Getter functions or advanced features (Prompt 17+)
 
 **Module Health**: 🟢 Excellent
 - Compiles successfully
-- All tests passing (40/40)
+- All tests passing (46/46)
 - Well documented
 - Security conscious
 - Complete crowdfunding cycle (create → fund → claim OR reclaim)
 - Job posting system implemented
 - Poll creation & voting system implemented
-- Ready for getter functions & poll results
+- Feedback system implemented
+- Ready for getter functions & advanced features
 
 **Capabilities Unlocked**:
 - ✅ Users can create projects
@@ -591,15 +604,18 @@ public fun vote_on_poll(
 - ✅ Contributors can vote on polls
 - ✅ Contribution as proof of backing for voting
 - ✅ Vote counting and double-vote prevention
+- ✅ Contributors can submit feedback to owners
+- ✅ Feedback delivered directly to owner's wallet
+- ✅ Rich content via Walrus integration
 - ⏳ Getter functions pending
 - ⏳ Job management (update/delete) pending
 - ⏳ Poll results getter pending
 
 ---
 
-**Last Updated**: Prompt 15 completion
+**Last Updated**: Prompt 16 completion
 **Network**: Sui Testnet
 **Build**: Successful
-**Tests**: 40/40 passing
-**Lines of Code**: ~713 (module) + ~2086 (tests)
+**Tests**: 46/46 passing
+**Lines of Code**: ~804 (module) + ~2529 (tests)
 

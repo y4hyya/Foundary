@@ -136,6 +136,25 @@ module foundry::foundry {
         amount: u64,
     }
 
+    /// Feedback struct representing contributor feedback to project owners
+    /// 
+    /// Contributors can submit feedback about projects they've backed. Feedback is
+    /// transferred to the project owner as an on-chain message with off-chain content.
+    public struct Feedback has key, store {
+        /// Unique identifier for the feedback
+        id: UID,
+        
+        /// Reference to the Project this feedback is about
+        project_id: ID,
+        
+        /// Address of the contributor who submitted the feedback
+        backer_address: address,
+        
+        /// Walrus Content Identifier (CID) for the feedback message
+        /// Stores reference to the actual feedback content (text, multimedia, etc.)
+        message_cid: String,
+    }
+
     /// Event emitted when a new project is created
     public struct ProjectCreated has copy, drop {
         project_id: address,
@@ -190,6 +209,14 @@ module foundry::foundry {
         voter: address,
         option_index: u64,
         new_vote_count: u64,
+    }
+
+    /// Event emitted when feedback is submitted to a project owner
+    public struct FeedbackSubmitted has copy, drop {
+        feedback_id: address,
+        project_id: address,
+        backer: address,
+        message_cid: String,
     }
 
     // === Public Functions ===
@@ -698,6 +725,70 @@ module foundry::foundry {
                 option_index,
                 new_vote_count,
             });
+        }
+
+        /// Submits feedback from a contributor to the project owner
+        /// 
+        /// Allows contributors to send feedback messages to project owners. The Contribution
+        /// object serves as proof of backing. Feedback is stored as an on-chain object with
+        /// off-chain content (via Walrus CID) and transferred to the project owner.
+        /// 
+        /// # Arguments
+        /// * `project` - Immutable reference to the Project to give feedback on
+        /// * `contribution` - Immutable reference to the contributor's Contribution object (proof of backing)
+        /// * `message_cid` - Walrus Content Identifier for the feedback message content
+        /// * `ctx` - Transaction context
+        /// 
+        /// # Returns
+        /// Creates a Feedback object and transfers it to the project owner
+        /// 
+        /// # Aborts
+        /// * `EInvalidContribution` - If the contribution is not for this project or caller doesn't own it
+        /// 
+        /// # Examples
+        /// ```
+        /// // Contributor submits feedback
+        /// submit_feedback(&project, &contribution, string::utf8(b"walrus_cid_feedback123"), ctx);
+        /// // Project owner receives Feedback object
+        /// ```
+        public fun submit_feedback(
+            project: &Project,
+            contribution: &Contribution,
+            message_cid: String,
+            ctx: &mut TxContext
+        ) {
+            // Get caller's address
+            let caller = tx_context::sender(ctx);
+            
+            // Verify the contribution is for this project
+            let project_id = object::id(project);
+            assert!(contribution.project_id == project_id, EInvalidContribution);
+            
+            // Verify the caller owns the contribution
+            assert!(contribution.backer_address == caller, EInvalidContribution);
+            
+            // Create new UID for the feedback
+            let feedback_uid = object::new(ctx);
+            let feedback_id = object::uid_to_address(&feedback_uid);
+            
+            // Create the Feedback object
+            let feedback = Feedback {
+                id: feedback_uid,
+                project_id,
+                backer_address: caller,
+                message_cid,
+            };
+            
+            // Emit feedback submitted event
+            event::emit(FeedbackSubmitted {
+                feedback_id,
+                project_id: object::id_to_address(&project_id),
+                backer: caller,
+                message_cid,
+            });
+            
+            // Transfer feedback to the project owner
+            transfer::transfer(feedback, project.owner);
         }
 
         // === Private Functions ===
