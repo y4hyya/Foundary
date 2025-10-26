@@ -1213,4 +1213,299 @@ module foundry::foundry_tests {
         
         ts::end(scenario);
     }
+
+    // === Create Poll Tests ===
+
+    #[test]
+    fun test_create_poll_success() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"project_with_poll"),
+                5_000_000_000,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Owner creates a poll
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            let mut options = vector::empty<std::string::String>();
+            vector::push_back(&mut options, string::utf8(b"Option A"));
+            vector::push_back(&mut options, string::utf8(b"Option B"));
+            vector::push_back(&mut options, string::utf8(b"Option C"));
+            
+            foundry::create_poll(
+                &mut project,
+                string::utf8(b"Which feature should we build next?"),
+                options,
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 3)] // ENotProjectOwner
+    fun test_create_poll_non_owner() {
+        let mut scenario = ts::begin(CREATOR);
+        let non_owner = @0xBAD;
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"unauthorized_poll"),
+                5_000_000_000,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Non-owner tries to create a poll (should fail)
+        ts::next_tx(&mut scenario, non_owner);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            
+            let mut options = vector::empty<std::string::String>();
+            vector::push_back(&mut options, string::utf8(b"Yes"));
+            vector::push_back(&mut options, string::utf8(b"No"));
+            
+            foundry::create_poll(
+                &mut project,
+                string::utf8(b"Unauthorized poll?"),
+                options,
+                ctx
+            ); // Should abort
+            
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_create_multiple_polls() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"multi_poll_project"),
+                10_000_000_000,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Owner creates first poll
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            let mut options = vector::empty<std::string::String>();
+            vector::push_back(&mut options, string::utf8(b"Mobile App"));
+            vector::push_back(&mut options, string::utf8(b"Web App"));
+            
+            foundry::create_poll(
+                &mut project,
+                string::utf8(b"Which platform first?"),
+                options,
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        // Owner creates second poll
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            let mut options = vector::empty<std::string::String>();
+            vector::push_back(&mut options, string::utf8(b"React"));
+            vector::push_back(&mut options, string::utf8(b"Vue"));
+            vector::push_back(&mut options, string::utf8(b"Angular"));
+            
+            foundry::create_poll(
+                &mut project,
+                string::utf8(b"Which framework?"),
+                options,
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        // Owner creates third poll
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            let mut options = vector::empty<std::string::String>();
+            vector::push_back(&mut options, string::utf8(b"Q1 2024"));
+            vector::push_back(&mut options, string::utf8(b"Q2 2024"));
+            vector::push_back(&mut options, string::utf8(b"Q3 2024"));
+            vector::push_back(&mut options, string::utf8(b"Q4 2024"));
+            
+            foundry::create_poll(
+                &mut project,
+                string::utf8(b"When should we launch?"),
+                options,
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_create_poll_binary_choice() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"binary_poll_project"),
+                5_000_000_000,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Owner creates a yes/no poll
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            let mut options = vector::empty<std::string::String>();
+            vector::push_back(&mut options, string::utf8(b"Yes"));
+            vector::push_back(&mut options, string::utf8(b"No"));
+            
+            foundry::create_poll(
+                &mut project,
+                string::utf8(b"Should we pivot to DeFi?"),
+                options,
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_create_poll_many_options() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"many_options_poll"),
+                5_000_000_000,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Owner creates a poll with many options
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            let mut options = vector::empty<std::string::String>();
+            vector::push_back(&mut options, string::utf8(b"Option 1"));
+            vector::push_back(&mut options, string::utf8(b"Option 2"));
+            vector::push_back(&mut options, string::utf8(b"Option 3"));
+            vector::push_back(&mut options, string::utf8(b"Option 4"));
+            vector::push_back(&mut options, string::utf8(b"Option 5"));
+            vector::push_back(&mut options, string::utf8(b"Option 6"));
+            vector::push_back(&mut options, string::utf8(b"Option 7"));
+            vector::push_back(&mut options, string::utf8(b"Option 8"));
+            
+            foundry::create_poll(
+                &mut project,
+                string::utf8(b"Pick your favorite feature"),
+                options,
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_create_poll_after_funding() {
+        let mut scenario = ts::begin(CREATOR);
+        let backer = @0xBABE;
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"funded_poll_project"),
+                5_000_000_000,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Backer funds project
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(6_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Owner creates poll after receiving funding
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            let mut options = vector::empty<std::string::String>();
+            vector::push_back(&mut options, string::utf8(b"Expand team"));
+            vector::push_back(&mut options, string::utf8(b"Marketing push"));
+            vector::push_back(&mut options, string::utf8(b"Product development"));
+            
+            foundry::create_poll(
+                &mut project,
+                string::utf8(b"How should we use the funds?"),
+                options,
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        ts::end(scenario);
+    }
 }

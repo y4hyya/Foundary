@@ -8,6 +8,7 @@ module foundry::foundry {
     use sui::tx_context::{Self, TxContext};
     use sui::table::{Self, Table};
     use std::string::String;
+    use std::vector;
     use sui::transfer;
     use sui::coin::{Self, Coin};
     use sui::sui::SUI;
@@ -63,9 +64,9 @@ module foundry::foundry {
         /// Key: job ID, Value: Job struct
         jobs: Table<u64, Job>,
         
-        /// Table storing polls/voting items for the project (to be implemented)
-        /// Key: poll ID, Value: Poll struct (placeholder for future implementation)
-        polls: Table<u64, PollPlaceholder>,
+        /// Table storing polls/voting items for the project
+        /// Key: poll ID, Value: Poll struct
+        polls: Table<u64, Poll>,
         
         /// Counter for generating unique job IDs
         job_counter: u64,
@@ -93,9 +94,25 @@ module foundry::foundry {
         description_cid: String,
     }
 
-    /// Placeholder struct for Poll functionality (to be implemented in future prompts)
-    public struct PollPlaceholder has store, drop {
-        placeholder: bool,
+    /// Poll struct representing a decentralized voting poll within a project
+    /// 
+    /// Polls allow project stakeholders to vote on decisions. Each poll has a question,
+    /// multiple options, and tracks votes to prevent double voting.
+    public struct Poll has store {
+        /// Unique identifier for the poll
+        id: UID,
+        
+        /// The question being asked in the poll
+        question: String,
+        
+        /// List of available voting options
+        options: vector<String>,
+        
+        /// Vote count for each option (option index -> vote count)
+        votes: Table<u64, u64>,
+        
+        /// Tracks who has voted to prevent double voting (voter address -> has_voted)
+        voters: Table<address, bool>,
     }
 
     /// Contribution struct - Serves as a receipt/proof of backing
@@ -155,6 +172,14 @@ module foundry::foundry {
         description_cid: String,
     }
 
+    /// Event emitted when a poll is created in a project
+    public struct PollCreated has copy, drop {
+        project_id: address,
+        poll_id: u64,
+        question: String,
+        options_count: u64,
+    }
+
     // === Public Functions ===
 
     /// Creates a new crowdfunding project
@@ -211,7 +236,7 @@ module foundry::foundry {
             balance: balance::zero<SUI>(),
             contributors: table::new<address, u64>(ctx),
             jobs: table::new<u64, Job>(ctx),
-            polls: table::new<u64, PollPlaceholder>(ctx),
+            polls: table::new<u64, Poll>(ctx),
             job_counter: 0,
             poll_counter: 0,
             is_withdrawn: false,
@@ -510,6 +535,79 @@ module foundry::foundry {
             job_id,
             title,
             description_cid,
+        });
+    }
+
+    /// Creates a new poll for decentralized voting within a project
+    /// 
+    /// Allows project owners to create polls for decision-making. Each poll has a question
+    /// and multiple voting options. Voters are tracked to prevent double voting.
+    /// 
+    /// # Arguments
+    /// * `project` - Mutable reference to the Project
+    /// * `question` - The question to be voted on
+    /// * `options` - Vector of voting options
+    /// * `ctx` - Transaction context
+    /// 
+    /// # Returns
+    /// Adds the poll to the project's polls table
+    /// 
+    /// # Aborts
+    /// * `ENotProjectOwner` - If caller is not the project owner
+    /// 
+    /// # Examples
+    /// ```
+    /// // Owner creates a poll
+    /// let options = vector[string::utf8(b"Option A"), string::utf8(b"Option B")];
+    /// create_poll(&mut project, string::utf8(b"Which feature?"), options, ctx);
+    /// // Poll is added to project.polls table
+    /// ```
+    public fun create_poll(
+        project: &mut Project,
+        question: String,
+        options: vector<String>,
+        ctx: &mut TxContext
+    ) {
+        // Get caller's address
+        let caller = tx_context::sender(ctx);
+        
+        // Verify caller is the project owner
+        assert!(caller == project.owner, ENotProjectOwner);
+        
+        // Increment poll counter to get new poll ID
+        let poll_id = project.poll_counter;
+        project.poll_counter = project.poll_counter + 1;
+        
+        // Create new UID for the poll
+        let poll_uid = object::new(ctx);
+        
+        // Initialize votes table with zero votes for each option
+        let mut votes = table::new<u64, u64>(ctx);
+        let mut i = 0;
+        let options_count = vector::length(&options);
+        while (i < options_count) {
+            table::add(&mut votes, i, 0);
+            i = i + 1;
+        };
+        
+        // Create new Poll
+        let poll = Poll {
+            id: poll_uid,
+            question,
+            options,
+            votes,
+            voters: table::new<address, bool>(ctx),
+        };
+        
+        // Add poll to project's polls table
+        table::add(&mut project.polls, poll_id, poll);
+        
+        // Emit poll created event
+        event::emit(PollCreated {
+            project_id: object::uid_to_address(&project.id),
+            poll_id,
+            question,
+            options_count,
         });
     }
 
