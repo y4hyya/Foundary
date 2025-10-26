@@ -1,0 +1,356 @@
+/* Claim and Reclaim Widget Styles */
+
+.claim-reclaim-widget {
+  margin-top: 24px;
+}
+
+/* Error Message */
+.error-message {
+  background: #fff5f5;
+  border: 2px solid #ffcdd2;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #c62828;
+  font-size: 14px;
+  font-weight: 600;
+  animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.error-icon {
+  font-size: 20px;
+}
+
+/* Action Section */
+.action-section {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border: 2px solid #e0e0e0;
+  margin-bottom: 20px;
+}
+
+.claim-section {
+  border-left: 4px solid #4CAF50;
+  background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+}
+
+.reclaim-section {
+  border-left: 4px solid #ff9800;
+  background: linear-gradient(135deg, #fff3e0 0%, #fce4ec 100%);
+}
+
+/* Action Header */
+.action-header {
+  margin-bottom: 20px;
+}
+
+.action-header h3 {
+  font-size: 20px;
+  font-weight: 800;
+  color: #2c3e50;
+  margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-header p {
+  font-size: 14px;
+  color: #7f8c8d;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Action Stats */
+.action-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.stat {
+  text-align: center;
+}
+
+.stat-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #95a5a6;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  color: #2c3e50;
+}
+
+/* Action Info */
+.action-info {
+  margin-bottom: 20px;
+}
+
+.action-info p {
+  font-size: 14px;
+  color: #7f8c8d;
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+}
+
+/* Contributions List */
+.contributions-list {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.contributions-list h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 8px 0;
+}
+
+.contributions-list ul {
+  margin: 0;
+  padding-left: 16px;
+  list-style-type: disc;
+}
+
+.contributions-list li {
+  font-size: 12px;
+  color: #7f8c8d;
+  margin: 4px 0;
+  line-height: 1.4;
+}
+
+/* Loading Contributions */
+.loading-contributions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px;
+  color: #7f8c8d;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Buttons */
+.btn {
+  width: 100%;
+  padding: 16px 24px;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #4CAF50 0%, #66bb6a 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(76, 175, 80, 0.4);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(255, 152, 0, 0.4);
+}
+
+/* Button Variants */
+.btn-claim {
+  background: linear-gradient(135deg, #4CAF50 0%, #66bb6a 100%);
+}
+
+.btn-reclaim {
+  background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%);
+}
+
+/* Spinner */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .action-section {
+    padding: 20px;
+  }
+
+  .action-stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  .stat:last-child {
+    border-bottom: none;
+  }
+
+  .stat-label {
+    margin-bottom: 0;
+  }
+
+  .action-header h3 {
+    font-size: 18px;
+  }
+
+  .btn {
+    padding: 14px 20px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .action-section {
+    padding: 16px;
+  }
+
+  .action-header h3 {
+    font-size: 16px;
+  }
+
+  .action-header p {
+    font-size: 13px;
+  }
+
+  .stat-value {
+    font-size: 14px;
+  }
+
+  .btn {
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+
+  .contributions-list {
+    padding: 10px;
+  }
+
+  .contributions-list h4 {
+    font-size: 12px;
+  }
+
+  .contributions-list li {
+    font-size: 11px;
+  }
+}
+
+/* Animation for section appearance */
+.action-section {
+  animation: slideInUp 0.4s ease;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Success state animation */
+.btn:active {
+  transform: scale(0.98);
+}
+
+/* Focus states for accessibility */
+.btn:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .action-section {
+    border-width: 3px;
+  }
+  
+  .claim-section {
+    border-left-color: #2e7d32;
+  }
+  
+  .reclaim-section {
+    border-left-color: #f57c00;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .action-section {
+    animation: none;
+  }
+  
+  .btn:hover:not(:disabled) {
+    transform: none;
+  }
+  
+  .spinner {
+    animation: none;
+  }
+}

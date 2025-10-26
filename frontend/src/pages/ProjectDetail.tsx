@@ -13,6 +13,7 @@ import { mistToSui } from '../config/constants';
 import { getWalrusUrl } from '../utils/walrusClient';
 import { getCategoryLabel, formatDeadline } from '../utils/walrusSchemas';
 import FundingWidget from '../components/FundingWidget';
+import ClaimReclaimWidget from '../components/ClaimReclaimWidget';
 import './ProjectDetail.css';
 
 type TabType = 'details' | 'updates' | 'backers' | 'comments';
@@ -430,12 +431,6 @@ export default function ProjectDetail() {
               <h3>Project Owner</h3>
               <p>You own this project</p>
               
-              {fundingProgress >= 100 && !isFunded && (
-                <button className="btn btn-primary" onClick={() => alert('Claim funds functionality coming soon!')}>
-                  Claim Funds
-                </button>
-              )}
-              
               <button className="btn btn-secondary" onClick={() => alert('Post update functionality coming soon!')}>
                 Post Update
               </button>
@@ -488,6 +483,15 @@ export default function ProjectDetail() {
           </div>
         </div>
       </div>
+
+      {/* Claim/Reclaim Widget */}
+      <ClaimReclaimWidget
+        project={project}
+        onSuccess={() => {
+          // Refetch project data to update funding stats
+          refetch();
+        }}
+      />
 
       {/* Funding Widget Modal */}
       <FundingWidget
