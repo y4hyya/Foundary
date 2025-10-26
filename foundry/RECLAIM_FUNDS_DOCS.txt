@@ -1,0 +1,698 @@
+# reclaim_funds() Function - Complete Documentation
+
+## Overview
+
+The `reclaim_funds()` function allows backers to get full refunds when a crowdfunding project fails to meet its funding goal by the deadline. This function provides crucial backer protection by ensuring contributors don't lose money on failed projects.
+
+---
+
+## Function Signature
+
+```move
+public fun reclaim_funds(
+    project: &mut Project,
+    contribution: Contribution,
+    clock: &Clock,
+    ctx: &mut TxContext
+)
+```
+
+### Parameters
+
+1. **project: &mut Project**
+   - Mutable reference to the Project object
+   - Will be modified (balance reduced, current_funding decreased, contributors table updated)
+
+2. **contribution: Contribution**
+   - The Contribution receipt object to be refunded
+   - Will be burned/destroyed after refund
+   - Must belong to the caller
+
+3. **clock: &Clock**
+   - Sui Clock object for deadline verification
+   - Used to check if deadline has passed
+
+4. **ctx: &mut TxContext**
+   - Transaction context
+   - Used to verify caller and create refund coin
+
+### Returns
+
+- **Nothing directly**, but transfers a `Coin<SUI>` back to the backer
+- The Contribution object is burned (deleted)
+- Project state is updated
+
+---
+
+## Implementation Details
+
+### Security Checks (in order)
+
+1. **Deadline Verification**
+   ```move
+   let current_time = clock::timestamp_ms(clock);
+   assert!(current_time > project.deadline, EDeadlineNotPassed);
+   ```
+   - Ensures deadline has passed
+   - Error code: 7 (EDeadlineNotPassed)
+
+2. **Funding Goal Verification**
+   ```move
+   assert!(project.current_funding < project.funding_goal, EFundingGoalMet);
+   ```
+   - Ensures project failed (goal not met)
+   - Error code: 8 (EFundingGoalMet)
+
+3. **Contribution Ownership Verification**
+   ```move
+   assert!(contribution.backer_address == caller, EInvalidContribution);
+   ```
+   - Ensures contribution belongs to caller
+   - Error code: 9 (EInvalidContribution)
+
+### Process Flow
+
+```
+1. Get caller's address (tx_context::sender)
+   ↓
+2. Get current time from Clock
+   ↓
+3. Verify deadline has passed
+   ↓
+4. Verify funding goal NOT met
+   ↓
+5. Verify contribution belongs to caller
+   ↓
+6. Get refund amount from contribution
+   ↓
+7. Destructure and burn Contribution object
+   ↓
+8. Withdraw refund from project balance
+   ↓
+9. Convert Balance<SUI> to Coin<SUI>
+   ↓
+10. Update current_funding (decrease)
+   ↓
+11. Update contributors table
+   ↓
+12. Emit RefundIssued event
+   ↓
+13. Transfer refund coin to backer
+```
+
+### Key Operations
+
+```move
+// Get refund amount
+let refund_amount = contribution.amount;
+
+// Burn the Contribution object
+let Contribution { id, project_id: _, backer_address: _, amount: _ } = contribution;
+object::delete(id);
+
+// Withdraw from project balance
+let refund_balance = balance::split(&mut project.balance, refund_amount);
+
+// Convert to coin
+let refund_coin = coin::from_balance(refund_balance, ctx);
+
+// Update current_funding
+project.current_funding = project.current_funding - refund_amount;
+
+// Update contributors table
+if (table::contains(&project.contributors, caller)) {
+    let current_contribution = table::remove(&mut project.contributors, caller);
+    let remaining = current_contribution - refund_amount;
+    if (remaining > 0) {
+        table::add(&mut project.contributors, caller, remaining);
+    };
+};
+
+// Emit event
+event::emit(RefundIssued {
+    project_id,
+    backer: caller,
+    amount: refund_amount,
+});
+
+// Transfer refund
+transfer::public_transfer(refund_coin, caller);
+```
+
+---
+
+## Error Conditions
+
+### EDeadlineNotPassed (Error Code: 7)
+**When:** Current time ≤ deadline
+**Example:**
+```move
+// Deadline is in 1 hour
+reclaim_funds(&mut project, contribution, &clock, ctx); // ❌ Aborts with code 7
+```
+
+### EFundingGoalMet (Error Code: 8)
+**When:** Project successfully met its goal
+**Example:**
+```move
+// Goal: 10 SUI, Current: 12 SUI
+reclaim_funds(&mut project, contribution, &clock, ctx); // ❌ Aborts with code 8
+```
+
+### EInvalidContribution (Error Code: 9)
+**When:** Contribution doesn't belong to caller
+**Example:**
+```move
+// Alice tries to use Bob's contribution
+reclaim_funds(&mut project, bobs_contribution, &clock, ctx); // ❌ Aborts with code 9
+```
+
+---
+
+## Usage Examples
+
+### Example 1: Successful Refund
+
+```move
+// Project created with 10 SUI goal, deadline in 30 days
+let project = create_project(
+    string::utf8(b"My Project"),
+    10_000_000_000,
+    deadline,
+    ctx
+);
+
+// Backer contributes 3 SUI
+let contribution = fund_project(&mut project, coin::mint(3_000_000_000, ctx), ctx);
+
+// 31 days pass, only 5 SUI total raised (goal not met)
+// Backer reclaims their 3 SUI
+reclaim_funds(&mut project, contribution, &clock, ctx); // ✅ Succeeds
+// Backer receives 3 SUI back
+```
+
+### Example 2: Multiple Contributions Refund
+
+```move
+// Backer contributes 2 SUI
+let contribution1 = fund_project(&mut project, coin::mint(2_000_000_000, ctx), ctx);
+
+// Same backer contributes 3 SUI more
+let contribution2 = fund_project(&mut project, coin::mint(3_000_000_000, ctx), ctx);
+
+// After deadline, project failed
+// Backer can reclaim each contribution separately
+reclaim_funds(&mut project, contribution1, &clock, ctx); // ✅ Gets 2 SUI back
+reclaim_funds(&mut project, contribution2, &clock, ctx); // ✅ Gets 3 SUI back
+```
+
+### Example 3: Failed Refund - Deadline Not Passed
+
+```move
+// Project deadline hasn't passed yet
+let current_time = clock::timestamp_ms(&clock); // e.g., day 15
+assert!(current_time < project.deadline);
+
+// Backer tries to reclaim early
+reclaim_funds(&mut project, contribution, &clock, ctx); // ❌ Aborts with EDeadlineNotPassed
+```
+
+### Example 4: Failed Refund - Project Succeeded
+
+```move
+// Project met its goal (10 SUI goal, 12 SUI raised)
+assert!(project.current_funding >= project.funding_goal);
+
+// Deadline passes
+// Backer tries to reclaim from successful project
+reclaim_funds(&mut project, contribution, &clock, ctx); // ❌ Aborts with EFundingGoalMet
+```
+
+---
+
+## State Changes
+
+### Project Object Changes
+- **balance**: Decreased by refund amount
+- **current_funding**: Decreased by refund amount
+- **contributors table**: Entry removed or updated (if multiple contributions)
+- **All other fields**: Unchanged
+
+### Objects Destroyed
+- **Contribution**: Burned/deleted permanently
+
+### Objects Created
+- **Coin<SUI>**: Created and transferred to backer
+
+### Events Emitted
+```move
+RefundIssued {
+    project_id: address,     // Project's address
+    backer: address,         // Backer who got refund
+    amount: u64,            // Amount refunded in MIST
+}
+```
+
+---
+
+## Integration with Frontend
+
+### TypeScript Example (Using @mysten/dapp-kit)
+
+```typescript
+import { Transaction } from '@mysten/sui/transactions';
+import { useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+
+function ReclaimFundsButton({ 
+  projectId, 
+  contributionId 
+}: { 
+  projectId: string;
+  contributionId: string;
+}) {
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
+
+  const handleReclaim = () => {
+    const tx = new Transaction();
+    
+    // Call reclaim_funds
+    tx.moveCall({
+      target: `${PACKAGE_ID}::foundry::reclaim_funds`,
+      arguments: [
+        tx.object(projectId),       // Project
+        tx.object(contributionId),  // Contribution to refund
+        tx.object('0x6'),          // Sui Clock object
+      ],
+    });
+
+    signAndExecute({
+      transaction: tx,
+      options: {
+        showEvents: true,
+      },
+    }, {
+      onSuccess: (result) => {
+        console.log('Refund successful!', result);
+        // Backer's wallet now has their SUI back
+      },
+      onError: (error) => {
+        console.error('Refund failed:', error);
+        // Handle errors (deadline not passed, goal met, etc.)
+      },
+    });
+  };
+
+  return <button onClick={handleReclaim}>Reclaim Funds</button>;
+}
+```
+
+### Checking Refund Eligibility
+
+```typescript
+interface Project {
+  deadline: number;
+  funding_goal: string;
+  current_funding: string;
+  is_withdrawn: boolean;
+}
+
+function canReclaimFunds(project: Project, currentTime: number): boolean {
+  const deadlinePassed = currentTime > project.deadline;
+  const goalNotMet = BigInt(project.current_funding) < BigInt(project.funding_goal);
+  const notWithdrawn = !project.is_withdrawn;
+  
+  return deadlinePassed && goalNotMet && notWithdrawn;
+}
+
+// Usage in component
+const isRefundable = canReclaimFunds(project, Date.now());
+```
+
+---
+
+## Testing
+
+### Test Coverage
+
+All test cases implemented and passing:
+
+1. **test_reclaim_funds_success** ✅
+   - Backer successfully reclaims after deadline, goal not met
+   - Verifies coin transfer to backer
+
+2. **test_reclaim_funds_before_deadline** ✅
+   - Reclaim attempt before deadline is rejected
+   - Aborts with EDeadlineNotPassed
+
+3. **test_reclaim_funds_goal_met** ✅
+   - Reclaim attempt on successful project is rejected
+   - Aborts with EFundingGoalMet
+
+4. **test_reclaim_funds_wrong_backer** ✅
+   - Attempt to use someone else's contribution is rejected
+   - Aborts with EInvalidContribution
+
+5. **test_reclaim_funds_multiple_backers** ✅
+   - Multiple backers can each reclaim their contributions
+   - Each receives their correct amount
+
+6. **test_reclaim_funds_partial_contribution** ✅
+   - Backer with multiple contributions can reclaim individually
+   - Correctly tracks remaining contributions
+
+### Running Tests
+
+```bash
+cd foundry
+sui move test
+
+# Expected output:
+# [ PASS    ] foundry::foundry_tests::test_reclaim_funds_success
+# [ PASS    ] foundry::foundry_tests::test_reclaim_funds_before_deadline
+# [ PASS    ] foundry::foundry_tests::test_reclaim_funds_goal_met
+# [ PASS    ] foundry::foundry_tests::test_reclaim_funds_wrong_backer
+# [ PASS    ] foundry::foundry_tests::test_reclaim_funds_multiple_backers
+# [ PASS    ] foundry::foundry_tests::test_reclaim_funds_partial_contribution
+# Test result: OK. Total tests: 22; passed: 22; failed: 0
+```
+
+---
+
+## Security Considerations
+
+### ✅ Implemented Protections
+
+1. **Deadline Enforcement**
+   - Cannot reclaim before deadline
+   - Uses Sui Clock for reliable time
+   - Prevents premature refunds
+
+2. **Goal Verification**
+   - Only failed projects allow refunds
+   - Successful projects cannot be refunded
+   - Protects project owners
+
+3. **Ownership Validation**
+   - Only contribution owner can reclaim
+   - Prevents theft of others' contributions
+   - Contribution object is proof of ownership
+
+4. **Object Burning**
+   - Contribution is deleted after refund
+   - Prevents double-refunding
+   - Clean object lifecycle
+
+5. **State Consistency**
+   - current_funding updated correctly
+   - contributors table maintained
+   - balance matches accounting
+
+6. **Event Emission**
+   - All refunds are logged
+   - Enables off-chain tracking
+   - Supports transparency
+
+### ⚠️ Design Considerations
+
+1. **Clock Dependency**
+   - Requires Sui Clock object (0x6)
+   - Adds parameter to function call
+   - Clock is shared object (consensus)
+
+2. **Individual Refunds**
+   - Must reclaim each contribution separately
+   - No batch refund mechanism
+   - Can be gas-intensive for many contributions
+
+3. **Contributors Table Cleanup**
+   - Entry removed if fully refunded
+   - Entry updated if partial refund
+   - Handles edge cases correctly
+
+4. **No Partial Refunds**
+   - Must refund entire Contribution amount
+   - Cannot split a single Contribution
+   - Would need multiple contributions for partial refunds
+
+---
+
+## Common Patterns
+
+### Pattern 1: Check Eligibility Before Reclaiming
+
+```typescript
+// Off-chain check first
+if (currentTime > project.deadline && 
+    project.current_funding < project.funding_goal) {
+    // Safe to call reclaim_funds
+    reclaim_funds(&mut project, contribution, &clock, ctx);
+}
+```
+
+### Pattern 2: Event-Driven Refund UI
+
+```typescript
+// Listen for RefundIssued events
+suiClient.subscribeEvent({
+  filter: {
+    MoveEventType: `${PACKAGE_ID}::foundry::RefundIssued`
+  },
+  onMessage: (event) => {
+    console.log('Refund issued:', event.parsedJson);
+    // Update UI: show "Refunded" badge
+    // Remove contribution from user's list
+  }
+});
+```
+
+### Pattern 3: Bulk Refund Flow
+
+```typescript
+// Reclaim multiple contributions in sequence
+async function reclaimAllContributions(
+  projectId: string,
+  contributionIds: string[]
+) {
+  for (const contributionId of contributionIds) {
+    const tx = new Transaction();
+    
+    tx.moveCall({
+      target: `${PACKAGE_ID}::foundry::reclaim_funds`,
+      arguments: [
+        tx.object(projectId),
+        tx.object(contributionId),
+        tx.object('0x6'), // Clock
+      ],
+    });
+    
+    await signAndExecuteTransaction({ transaction: tx });
+  }
+}
+```
+
+---
+
+## Best Practices
+
+### For Frontend Developers
+
+1. **Display Refund Status Clearly**
+   ```typescript
+   if (project.deadline > Date.now()) {
+     return <Status>Project Active - Refunds available after {deadline}</Status>;
+   } else if (project.current_funding >= project.funding_goal) {
+     return <Status>Project Succeeded - No refunds</Status>;
+   } else {
+     return <Status>Project Failed - Refunds available</Status>;
+   }
+   ```
+
+2. **Show All Claimable Contributions**
+   ```typescript
+   const contributions = await getUserContributions(userAddress, projectId);
+   return contributions.map(c => (
+     <ReclaimButton key={c.id} contribution={c} />
+   ));
+   ```
+
+3. **Calculate Total Refundable Amount**
+   ```typescript
+   const totalRefundable = contributions.reduce((sum, c) => sum + c.amount, 0n);
+   return <div>Total Refundable: {formatSui(totalRefundable)} SUI</div>;
+   ```
+
+### For Smart Contract Developers
+
+1. **Always Use Clock**
+   - Don't rely on tx timestamps
+   - Use shared Clock object (0x6)
+   - Ensures consistent time checking
+
+2. **Update State Before Transfer**
+   - Burn Contribution first
+   - Update current_funding
+   - Then transfer refund
+   - Prevents reentrancy
+
+3. **Emit Events**
+   - Always emit RefundIssued
+   - Include all relevant data
+   - Supports off-chain indexing
+
+---
+
+## Comparison with Other Functions
+
+| Feature | fund_project | claim_funds | reclaim_funds |
+|---------|-------------|-------------|---------------|
+| Caller | Anyone | Owner only | Backer only |
+| Creates Object | Contribution | Coin<SUI> | Coin<SUI> |
+| Destroys Object | No | No | Contribution |
+| Requires Payment | Yes (Coin<SUI>) | No | No |
+| Requires Clock | No | No | Yes |
+| When Callable | Before goal/deadline | After goal met | After deadline + goal not met |
+| Direction | Backer → Project | Project → Owner | Project → Backer |
+| Can Call Multiple | Yes (many times) | No (once) | Yes (per contribution) |
+| Emits Event | ContributionMade | FundsWithdrawn | RefundIssued |
+
+---
+
+## Lifecycle Scenarios
+
+### Scenario 1: Failed Project - Full Refunds
+
+```
+1. Owner creates project (Goal: 10 SUI, Deadline: 30 days)
+2. Backer A contributes 3 SUI
+3. Backer B contributes 4 SUI
+4. 30 days pass, only 7 SUI raised (goal not met)
+5. Backer A reclaims 3 SUI ✅
+6. Backer B reclaims 4 SUI ✅
+7. Project has 0 SUI balance
+```
+
+### Scenario 2: Successful Project - No Refunds
+
+```
+1. Owner creates project (Goal: 10 SUI)
+2. Backers contribute 12 SUI total
+3. Goal met! 
+4. Deadline passes
+5. Owner claims 12 SUI ✅
+6. Backers cannot reclaim (goal was met) ❌
+```
+
+### Scenario 3: Mixed Refunds
+
+```
+1. Backer contributes 2 SUI (Contribution #1)
+2. Backer contributes 3 SUI (Contribution #2)
+3. Project fails
+4. Backer reclaims Contribution #1 (2 SUI) ✅
+5. Backer still has Contribution #2
+6. Backer reclaims Contribution #2 (3 SUI) ✅
+```
+
+---
+
+## Future Enhancements
+
+### Potential Improvements
+
+1. **Batch Refunds**
+   ```move
+   public fun reclaim_multiple_funds(
+       project: &mut Project,
+       contributions: vector<Contribution>,
+       clock: &Clock,
+       ctx: &mut TxContext
+   )
+   ```
+
+2. **Automatic Refunds**
+   ```move
+   // Allow owner to trigger refunds for all
+   public fun refund_all_contributors(
+       project: &mut Project,
+       clock: &Clock,
+       ctx: &mut TxContext
+   )
+   ```
+
+3. **Partial Refunds**
+   ```move
+   // Allow partial refund with remainder
+   public fun reclaim_partial(
+       project: &mut Project,
+       contribution: &mut Contribution,
+       amount: u64,
+       clock: &Clock,
+       ctx: &mut TxContext
+   )
+   ```
+
+4. **Refund with Penalty/Bonus**
+   ```move
+   // Early refunds with penalty, or late refunds with bonus
+   public fun reclaim_with_adjustment(
+       project: &mut Project,
+       contribution: Contribution,
+       clock: &Clock,
+       ctx: &mut TxContext
+   )
+   ```
+
+---
+
+## Quick Reference
+
+```move
+// Function signature
+public fun reclaim_funds(
+    project: &mut Project,
+    contribution: Contribution,
+    clock: &Clock,
+    ctx: &mut TxContext
+)
+
+// Error codes
+EDeadlineNotPassed = 7      // Deadline hasn't passed
+EFundingGoalMet = 8         // Project succeeded
+EInvalidContribution = 9    // Wrong owner
+
+// Event emitted
+RefundIssued {
+    project_id: address,
+    backer: address,
+    amount: u64,
+}
+
+// State changes
+project.balance → decreased
+project.current_funding → decreased
+project.contributors → updated/removed
+contribution → BURNED/DELETED
+
+// Object created
+Coin<SUI> → transferred to backer
+
+// Requirements
+✅ Deadline passed
+✅ Goal not met
+✅ Contribution belongs to caller
+✅ Clock object provided
+```
+
+---
+
+**Status:** ✅ Fully Implemented and Tested
+**Version:** Prompt 12 Complete
+**Tests:** 6/6 passing
+**Module:** foundry::foundry
+**Network:** Sui Testnet Ready
+
+**Complete Crowdfunding Cycle:**
+```
+Create → Fund → [Goal Met? Yes → Claim | No → Reclaim]
+```
+

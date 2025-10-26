@@ -650,4 +650,349 @@ module foundry::foundry_tests {
         
         ts::end(scenario);
     }
+
+    // === Reclaim Funds Tests ===
+
+    #[test]
+    fun test_reclaim_funds_success() {
+        let mut scenario = ts::begin(CREATOR);
+        let backer = @0xBABE;
+        let goal = 10_000_000_000; // 10 SUI
+        let contribution_amount = 3_000_000_000; // 3 SUI
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"failed_project"),
+                goal,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Backer funds project (but not enough to reach goal)
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(contribution_amount, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Time passes, deadline reached, project failed
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            let mut clock = sui::clock::create_for_testing(ctx);
+            sui::clock::set_for_testing(&mut clock, DEADLINE + 1000); // Past deadline
+            
+            foundry::reclaim_funds(&mut project, contribution, &clock, ctx);
+            
+            sui::clock::destroy_for_testing(clock);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Verify backer received refund
+        ts::next_tx(&mut scenario, backer);
+        {
+            assert!(ts::has_most_recent_for_sender<sui::coin::Coin<sui::sui::SUI>>(&scenario), 0);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 7)] // EDeadlineNotPassed
+    fun test_reclaim_funds_before_deadline() {
+        let mut scenario = ts::begin(CREATOR);
+        let backer = @0xBABE;
+        let goal = 10_000_000_000; // 10 SUI
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"active_project"),
+                goal,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Backer funds project
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(3_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Backer tries to reclaim BEFORE deadline (should fail)
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            let mut clock = sui::clock::create_for_testing(ctx);
+            sui::clock::set_for_testing(&mut clock, DEADLINE - 1000); // Before deadline
+            
+            foundry::reclaim_funds(&mut project, contribution, &clock, ctx); // Should abort
+            
+            sui::clock::destroy_for_testing(clock);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 8)] // EFundingGoalMet
+    fun test_reclaim_funds_goal_met() {
+        let mut scenario = ts::begin(CREATOR);
+        let backer = @0xBABE;
+        let goal = 5_000_000_000; // 5 SUI
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"successful_project"),
+                goal,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Backer funds project to reach goal
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(goal, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Backer tries to reclaim after deadline but goal was met (should fail)
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            let mut clock = sui::clock::create_for_testing(ctx);
+            sui::clock::set_for_testing(&mut clock, DEADLINE + 1000); // Past deadline
+            
+            foundry::reclaim_funds(&mut project, contribution, &clock, ctx); // Should abort
+            
+            sui::clock::destroy_for_testing(clock);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 9)] // EInvalidContribution
+    fun test_reclaim_funds_wrong_backer() {
+        let mut scenario = ts::begin(CREATOR);
+        let backer1 = @0xBABE;
+        let backer2 = @0xBEEF;
+        let goal = 10_000_000_000; // 10 SUI
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"failed_project"),
+                goal,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Backer1 funds project
+        ts::next_tx(&mut scenario, backer1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(3_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Backer2 tries to use backer1's contribution (should fail)
+        ts::next_tx(&mut scenario, backer2);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_address<foundry::Contribution>(&scenario, backer1);
+            let ctx = ts::ctx(&mut scenario);
+            let mut clock = sui::clock::create_for_testing(ctx);
+            sui::clock::set_for_testing(&mut clock, DEADLINE + 1000);
+            
+            foundry::reclaim_funds(&mut project, contribution, &clock, ctx); // Should abort
+            
+            sui::clock::destroy_for_testing(clock);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_reclaim_funds_multiple_backers() {
+        let mut scenario = ts::begin(CREATOR);
+        let backer1 = @0xBABE;
+        let backer2 = @0xBEEF;
+        let goal = 10_000_000_000; // 10 SUI
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"failed_project_multi"),
+                goal,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Backer1 funds project
+        ts::next_tx(&mut scenario, backer1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(3_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Backer2 funds project
+        ts::next_tx(&mut scenario, backer2);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(4_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Backer1 reclaims after deadline
+        ts::next_tx(&mut scenario, backer1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            let mut clock = sui::clock::create_for_testing(ctx);
+            sui::clock::set_for_testing(&mut clock, DEADLINE + 1000);
+            
+            foundry::reclaim_funds(&mut project, contribution, &clock, ctx);
+            
+            sui::clock::destroy_for_testing(clock);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Backer2 reclaims after deadline
+        ts::next_tx(&mut scenario, backer2);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            let mut clock = sui::clock::create_for_testing(ctx);
+            sui::clock::set_for_testing(&mut clock, DEADLINE + 1000);
+            
+            foundry::reclaim_funds(&mut project, contribution, &clock, ctx);
+            
+            sui::clock::destroy_for_testing(clock);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Verify both backers received refunds
+        ts::next_tx(&mut scenario, backer1);
+        {
+            assert!(ts::has_most_recent_for_sender<sui::coin::Coin<sui::sui::SUI>>(&scenario), 0);
+        };
+        
+        ts::next_tx(&mut scenario, backer2);
+        {
+            assert!(ts::has_most_recent_for_sender<sui::coin::Coin<sui::sui::SUI>>(&scenario), 0);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_reclaim_funds_partial_contribution() {
+        let mut scenario = ts::begin(CREATOR);
+        let backer = @0xBABE;
+        let goal = 10_000_000_000; // 10 SUI
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"failed_project_partial"),
+                goal,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Backer contributes twice (will have 2 Contribution objects)
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment1 = sui::coin::mint_for_testing<sui::sui::SUI>(2_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment1, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment2 = sui::coin::mint_for_testing<sui::sui::SUI>(3_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment2, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Backer reclaims first contribution only
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution1 = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            let mut clock = sui::clock::create_for_testing(ctx);
+            sui::clock::set_for_testing(&mut clock, DEADLINE + 1000);
+            
+            foundry::reclaim_funds(&mut project, contribution1, &clock, ctx);
+            
+            sui::clock::destroy_for_testing(clock);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Verify backer received first refund
+        ts::next_tx(&mut scenario, backer);
+        {
+            assert!(ts::has_most_recent_for_sender<sui::coin::Coin<sui::sui::SUI>>(&scenario), 0);
+            // Second contribution should still exist
+            assert!(ts::has_most_recent_for_sender<foundry::Contribution>(&scenario), 0);
+        };
+        
+        ts::end(scenario);
+    }
 }

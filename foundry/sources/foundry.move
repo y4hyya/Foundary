@@ -22,6 +22,9 @@ module foundry::foundry {
     const EFundingGoalNotMet: u64 = 4;
     const EProjectAlreadyFunded: u64 = 5;
     const EInsufficientFunds: u64 = 6;
+    const EDeadlineNotPassed: u64 = 7;
+    const EFundingGoalMet: u64 = 8;
+    const EInvalidContribution: u64 = 9;
 
     // === Structs ===
 
@@ -123,6 +126,13 @@ module foundry::foundry {
     public struct FundsWithdrawn has copy, drop {
         project_id: address,
         owner: address,
+        amount: u64,
+    }
+
+    /// Event emitted when a backer reclaims their funds after project failure
+    public struct RefundIssued has copy, drop {
+        project_id: address,
+        backer: address,
         amount: u64,
     }
 
@@ -340,6 +350,90 @@ module foundry::foundry {
         
         // Transfer the coin to the owner
         transfer::public_transfer(payment_coin, caller);
+    }
+
+    /// Allows backers to reclaim their funds if the project fails to meet its goal
+    /// 
+    /// Backers can get a full refund if the project deadline has passed and the
+    /// funding goal was not met. This function burns the Contribution object and
+    /// returns the original SUI amount to the backer.
+    /// 
+    /// # Arguments
+    /// * `project` - Mutable reference to the Project
+    /// * `contribution` - The Contribution object to be refunded (will be burned)
+    /// * `clock` - Clock object for deadline verification
+    /// * `ctx` - Transaction context
+    /// 
+    /// # Returns
+    /// Transfers SUI back to the backer and burns the Contribution object
+    /// 
+    /// # Aborts
+    /// * `EDeadlineNotPassed` - If the project deadline hasn't passed yet
+    /// * `EFundingGoalMet` - If the project successfully met its funding goal
+    /// * `EInvalidContribution` - If the contribution doesn't belong to the caller
+    /// 
+    /// # Examples
+    /// ```
+    /// // After deadline passes and project fails
+    /// reclaim_funds(&mut project, contribution, &clock, ctx);
+    /// // Backer receives their SUI back
+    /// ```
+    public fun reclaim_funds(
+        project: &mut Project,
+        contribution: Contribution,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        // Get caller's address
+        let caller = tx_context::sender(ctx);
+        
+        // Verify deadline has passed
+        let current_time = clock::timestamp_ms(clock);
+        assert!(current_time > project.deadline, EDeadlineNotPassed);
+        
+        // Verify funding goal was not met
+        assert!(project.current_funding < project.funding_goal, EFundingGoalMet);
+        
+        // Verify the contribution belongs to the caller
+        assert!(contribution.backer_address == caller, EInvalidContribution);
+        
+        // Get the refund amount from the contribution
+        let refund_amount = contribution.amount;
+        
+        // Get project ID for event
+        let project_id = object::uid_to_address(&project.id);
+        
+        // Destructure and burn the Contribution object
+        let Contribution { id, project_id: _, backer_address: _, amount: _ } = contribution;
+        object::delete(id);
+        
+        // Withdraw the refund amount from project balance
+        let refund_balance = balance::split(&mut project.balance, refund_amount);
+        
+        // Convert to coin for transfer
+        let refund_coin = coin::from_balance(refund_balance, ctx);
+        
+        // Update project current_funding
+        project.current_funding = project.current_funding - refund_amount;
+        
+        // Update contributors table - remove or update entry
+        if (table::contains(&project.contributors, caller)) {
+            let current_contribution = table::remove(&mut project.contributors, caller);
+            let remaining = current_contribution - refund_amount;
+            if (remaining > 0) {
+                table::add(&mut project.contributors, caller, remaining);
+            };
+        };
+        
+        // Emit refund event
+        event::emit(RefundIssued {
+            project_id,
+            backer: caller,
+            amount: refund_amount,
+        });
+        
+        // Transfer the refund to the backer
+        transfer::public_transfer(refund_coin, caller);
     }
 
     // === Private Functions ===

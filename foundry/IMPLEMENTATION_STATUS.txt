@@ -1,6 +1,6 @@
 # Foundry Implementation Status
 
-## Current Implementation (Prompt 11 Complete)
+## Current Implementation (Prompt 12 Complete)
 
 ### ✅ Completed Features
 
@@ -14,6 +14,7 @@
 - [x] ProjectCreated event
 - [x] ContributionMade event
 - [x] FundsWithdrawn event
+- [x] RefundIssued event
 
 #### 3. Error Constants
 - [x] EInvalidFundingGoal (1)
@@ -22,11 +23,15 @@
 - [x] EFundingGoalNotMet (4)
 - [x] EProjectAlreadyFunded (5)
 - [x] EInsufficientFunds (6)
+- [x] EDeadlineNotPassed (7)
+- [x] EFundingGoalMet (8)
+- [x] EInvalidContribution (9)
 
 #### 4. Functions
 - [x] create_project() - Fully implemented and tested
 - [x] fund_project() - Fully implemented and tested
 - [x] claim_funds() - Fully implemented and tested
+- [x] reclaim_funds() - Fully implemented and tested
 
 #### 5. Testing
 - [x] test_create_project_success
@@ -45,7 +50,13 @@
 - [x] test_claim_funds_double_withdrawal
 - [x] test_claim_funds_overfunded_project
 - [x] test_claim_funds_exactly_at_goal
-- [x] All tests passing (16/16)
+- [x] test_reclaim_funds_success
+- [x] test_reclaim_funds_before_deadline
+- [x] test_reclaim_funds_goal_met
+- [x] test_reclaim_funds_wrong_backer
+- [x] test_reclaim_funds_multiple_backers
+- [x] test_reclaim_funds_partial_contribution
+- [x] All tests passing (22/22)
 
 #### 6. Documentation
 - [x] PROJECT_STRUCTURE.txt
@@ -67,7 +78,7 @@ sui move build
 ```
 sui move test
 ✅ Running Move unit tests
-✅ 16/16 tests passed
+✅ 22/22 tests passed
 ✅ 0 failures
 ```
 
@@ -209,13 +220,52 @@ public fun claim_funds(
 
 ---
 
+## reclaim_funds Function Details
+
+### Signature
+```move
+public fun reclaim_funds(
+    project: &mut Project,
+    contribution: Contribution,
+    clock: &Clock,
+    ctx: &mut TxContext
+)
+```
+
+### Implementation Checklist
+- [x] Deadline verification (must have passed)
+- [x] Funding goal verification (must not be met)
+- [x] Contribution ownership verification
+- [x] Contribution object destruction
+- [x] Balance withdrawal from project
+- [x] current_funding update
+- [x] Contributors table update
+- [x] Event emission (RefundIssued)
+- [x] Transfer refund to backer
+- [x] Documentation
+- [x] Test coverage
+
+### Key Features
+✅ Deadline-based refunds (Clock integration)
+✅ Only for failed projects (goal not met)
+✅ Contribution ownership verification
+✅ Burns Contribution object
+✅ Returns exact contribution amount
+✅ Updates project state
+✅ Emits refund event
+✅ Supports multiple contributions per backer
+✅ Comprehensive error handling
+
+---
+
 ## Pending Implementation (Future Prompts)
 
 ### ⏳ Core Functions
 - [x] ~~contribute()~~ → fund_project() - COMPLETE ✅
 - [x] ~~withdraw_funds()~~ → claim_funds() - COMPLETE ✅
-- [ ] refund() - Return funds if goal not met
+- [x] ~~refund()~~ → reclaim_funds() - COMPLETE ✅
 - [ ] get_project_info() - Query project details
+- [ ] Getter functions for project state
 
 ### ⏳ Job System
 - [ ] JobStruct definition
@@ -243,23 +293,25 @@ public fun claim_funds(
 ```
 foundry/
 ├── sources/
-│   └── foundry.move              [Lines: 354]
+│   └── foundry.move              [Lines: 448]
 │       ├── Imports               ✅
-│       ├── Error constants       ✅
-│       ├── Structs               ✅
-│       ├── Events                ✅
+│       ├── Error constants (9)   ✅
+│       ├── Structs (4)           ✅
+│       ├── Events (4)            ✅
 │       ├── create_project()      ✅
 │       ├── fund_project()        ✅
 │       ├── claim_funds()         ✅
+│       ├── reclaim_funds()       ✅
 │       └── Test helpers          ✅
 │
 ├── tests/
-│   └── foundry_tests.move        [Lines: 654]
+│   └── foundry_tests.move        [Lines: 999]
 │       ├── Test imports          ✅
 │       ├── Test constants        ✅
-│       └── 16 test cases         ✅
+│       └── 22 test cases         ✅
 │
 ├── Move.toml                      ✅
+├── CLAIM_FUNDS_DOCS.txt           ✅
 └── IMPLEMENTATION_STATUS.txt      ✅
 ```
 
@@ -304,16 +356,10 @@ frontend/
 
 ---
 
-## Next Steps (Prompt 12+)
+## Next Steps (Prompt 13+)
 
 ### Immediate Priority
-1. **Implement refund() function**
-   - Check deadline has passed
-   - Verify goal not met
-   - Return funds to contributors
-   - Proportional refunds based on contribution
-
-2. **Add getter functions**
+1. **Add getter functions**
    - get_project_owner()
    - get_funding_status()
    - get_contributor_amount()
@@ -339,10 +385,12 @@ frontend/
 ## Code Quality
 
 ### Metrics
-- **Total Lines**: ~1008 (module + tests)
-- **Functions**: 3 public, 1 test helper
+- **Total Lines**: ~1447 (module + tests)
+- **Functions**: 4 public, 1 test helper
 - **Structs**: 4 (2 main, 2 placeholder)
-- **Tests**: 16 (all passing)
+- **Events**: 4 (all integrated)
+- **Error Constants**: 9
+- **Tests**: 22 (all passing)
 - **Documentation**: Comprehensive inline docs + status file
 
 ### Standards Compliance
@@ -358,23 +406,24 @@ frontend/
 
 ## Summary
 
-**Status**: Prompt 11 COMPLETE ✅
+**Status**: Prompt 12 COMPLETE ✅
 **Functions Implemented**:
 - create_project() - Full ✅
 - fund_project() - Full ✅
 - claim_funds() - Full ✅
+- reclaim_funds() - Full ✅
 
-**Tests**: 16/16 passing ✅
+**Tests**: 22/22 passing ✅
 **Integration**: Frontend ready
-**Ready For**: refund() implementation or Job/Poll systems (Prompt 12+)
+**Ready For**: Getter functions or Job/Poll systems (Prompt 13+)
 
 **Module Health**: 🟢 Excellent
 - Compiles successfully
-- All tests passing (16/16)
+- All tests passing (22/22)
 - Well documented
 - Security conscious
-- Complete funding cycle (create → fund → claim)
-- Ready for refunds & advanced features
+- Complete crowdfunding cycle (create → fund → claim OR reclaim)
+- Ready for getter functions & advanced features
 
 **Capabilities Unlocked**:
 - ✅ Users can create projects
@@ -384,14 +433,17 @@ frontend/
 - ✅ Events enable indexing
 - ✅ Owners can claim funds after goal met
 - ✅ Double withdrawal prevention
-- ⏳ Refunds pending
+- ✅ Backers can reclaim funds if project fails
+- ✅ Deadline-based refund mechanism
+- ✅ Complete crowdfunding lifecycle
+- ⏳ Getter functions pending
 - ⏳ Jobs/Polls pending
 
 ---
 
-**Last Updated**: Prompt 11 completion
+**Last Updated**: Prompt 12 completion
 **Network**: Sui Testnet
 **Build**: Successful
-**Tests**: 16/16 passing
-**Lines of Code**: ~354 (module) + ~654 (tests)
+**Tests**: 22/22 passing
+**Lines of Code**: ~448 (module) + ~999 (tests)
 
