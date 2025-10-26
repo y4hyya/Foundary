@@ -6,11 +6,19 @@ module foundry::foundry_tests {
 
     // Test constants
     const CREATOR: address = @0xCAFE;
+    const BACKER1: address = @0xBABE1;
+    const BACKER2: address = @0xBABE2;
+    const BACKER3: address = @0xBABE3;
+    const NON_OWNER: address = @0xDEAD;
     const FUNDING_GOAL: u64 = 10_000_000_000_000; // 10,000 SUI
     const DEADLINE: u64 = 1735689600000; // Future timestamp
     
     // Error codes (must match foundry module)
     const EInvalidFundingGoal: u64 = 1;
+    const EInvalidContribution: u64 = 9;
+    const EPollNotFound: u64 = 10;
+    const EInvalidOption: u64 = 11;
+    const EAlreadyVoted: u64 = 12;
 
     #[test]
     fun test_create_project_success() {
@@ -1504,6 +1512,577 @@ module foundry::foundry_tests {
             );
             
             ts::return_to_sender(&scenario, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    // ========================
+    // Vote on Poll Tests
+    // ========================
+
+    #[test]
+    fun test_vote_on_poll_success() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"walrus_cid_123"),
+                10_000_000_000,
+                1735689600000,
+                ctx
+            );
+        };
+        
+        // Backer funds project
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Creator creates poll
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            let mut options = vector::empty<std::string::String>();
+            vector::push_back(&mut options, string::utf8(b"Option A"));
+            vector::push_back(&mut options, string::utf8(b"Option B"));
+            
+            foundry::create_poll(
+                &mut project,
+                string::utf8(b"Test question?"),
+                options,
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        // Backer votes on poll
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::vote_on_poll(&mut project, 0, &contribution, 1, ctx);
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 10)] // EPollNotFound
+    fun test_vote_on_poll_not_found() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"walrus_cid_123"),
+                10_000_000_000,
+                1735689600000,
+                ctx
+            );
+        };
+        
+        // Backer funds project
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Backer tries to vote on non-existent poll
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::vote_on_poll(&mut project, 999, &contribution, 0, ctx); // Poll 999 doesn't exist
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 9)] // EInvalidContribution
+    fun test_vote_on_poll_wrong_backer() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"walrus_cid_123"),
+                10_000_000_000,
+                1735689600000,
+                ctx
+            );
+        };
+        
+        // BACKER1 funds project
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // BACKER2 funds project
+        ts::next_tx(&mut scenario, BACKER2);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Creator creates poll
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            let mut options = vector::empty<std::string::String>();
+            vector::push_back(&mut options, string::utf8(b"Yes"));
+            vector::push_back(&mut options, string::utf8(b"No"));
+            
+            foundry::create_poll(
+                &mut project,
+                string::utf8(b"Should we proceed?"),
+                options,
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        // BACKER2 tries to vote with BACKER1's contribution
+        ts::next_tx(&mut scenario, BACKER2);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let backer2_contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let backer1_contribution = ts::take_from_address<foundry::Contribution>(&scenario, BACKER1);
+            let ctx = ts::ctx(&mut scenario);
+            
+            // This should fail because BACKER2 is trying to use BACKER1's contribution
+            foundry::vote_on_poll(&mut project, 0, &backer1_contribution, 0, ctx);
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, backer2_contribution);
+            ts::return_to_address(BACKER1, backer1_contribution);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 11)] // EInvalidOption
+    fun test_vote_on_poll_invalid_option() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"walrus_cid_123"),
+                10_000_000_000,
+                1735689600000,
+                ctx
+            );
+        };
+        
+        // Backer funds project
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Creator creates poll with 2 options
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            let mut options = vector::empty<std::string::String>();
+            vector::push_back(&mut options, string::utf8(b"Yes"));
+            vector::push_back(&mut options, string::utf8(b"No"));
+            
+            foundry::create_poll(
+                &mut project,
+                string::utf8(b"Agree?"),
+                options,
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        // Backer tries to vote on invalid option index
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::vote_on_poll(&mut project, 0, &contribution, 5, ctx); // Option 5 doesn't exist
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 12)] // EAlreadyVoted
+    fun test_vote_on_poll_double_vote() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"walrus_cid_123"),
+                10_000_000_000,
+                1735689600000,
+                ctx
+            );
+        };
+        
+        // Backer funds project
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Creator creates poll
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            let mut options = vector::empty<std::string::String>();
+            vector::push_back(&mut options, string::utf8(b"A"));
+            vector::push_back(&mut options, string::utf8(b"B"));
+            
+            foundry::create_poll(
+                &mut project,
+                string::utf8(b"Choose one"),
+                options,
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        // Backer votes first time
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::vote_on_poll(&mut project, 0, &contribution, 0, ctx);
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        // Backer tries to vote again
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::vote_on_poll(&mut project, 0, &contribution, 1, ctx); // Should fail
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_vote_on_poll_multiple_voters() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"walrus_cid_123"),
+                15_000_000_000,
+                1735689600000,
+                ctx
+            );
+        };
+        
+        // Multiple backers fund project
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        ts::next_tx(&mut scenario, BACKER2);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(7_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        ts::next_tx(&mut scenario, BACKER3);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(3_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Creator creates poll
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            let mut options = vector::empty<std::string::String>();
+            vector::push_back(&mut options, string::utf8(b"Feature X"));
+            vector::push_back(&mut options, string::utf8(b"Feature Y"));
+            vector::push_back(&mut options, string::utf8(b"Feature Z"));
+            
+            foundry::create_poll(
+                &mut project,
+                string::utf8(b"What should we build next?"),
+                options,
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        // Backer 1 votes for option 0
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::vote_on_poll(&mut project, 0, &contribution, 0, ctx);
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        // Backer 2 votes for option 1
+        ts::next_tx(&mut scenario, BACKER2);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::vote_on_poll(&mut project, 0, &contribution, 1, ctx);
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        // Backer 3 votes for option 0
+        ts::next_tx(&mut scenario, BACKER3);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::vote_on_poll(&mut project, 0, &contribution, 0, ctx);
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_vote_on_poll_all_options() {
+        let mut scenario = ts::begin(CREATOR);
+        
+        // Create project
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"walrus_cid_123"),
+                20_000_000_000,
+                1735689600000,
+                ctx
+            );
+        };
+        
+        // Four backers fund project
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        ts::next_tx(&mut scenario, BACKER2);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        ts::next_tx(&mut scenario, BACKER3);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        ts::next_tx(&mut scenario, NON_OWNER);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Creator creates poll with 4 options
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            let mut options = vector::empty<std::string::String>();
+            vector::push_back(&mut options, string::utf8(b"Option 1"));
+            vector::push_back(&mut options, string::utf8(b"Option 2"));
+            vector::push_back(&mut options, string::utf8(b"Option 3"));
+            vector::push_back(&mut options, string::utf8(b"Option 4"));
+            
+            foundry::create_poll(
+                &mut project,
+                string::utf8(b"Test all options"),
+                options,
+                ctx
+            );
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        // Each backer votes for a different option
+        ts::next_tx(&mut scenario, BACKER1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::vote_on_poll(&mut project, 0, &contribution, 0, ctx);
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        ts::next_tx(&mut scenario, BACKER2);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::vote_on_poll(&mut project, 0, &contribution, 1, ctx);
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        ts::next_tx(&mut scenario, BACKER3);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::vote_on_poll(&mut project, 0, &contribution, 2, ctx);
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
+        };
+        
+        ts::next_tx(&mut scenario, NON_OWNER);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let contribution = ts::take_from_sender<foundry::Contribution>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::vote_on_poll(&mut project, 0, &contribution, 3, ctx);
+            
+            ts::return_to_address(CREATOR, project);
+            ts::return_to_sender(&scenario, contribution);
         };
         
         ts::end(scenario);

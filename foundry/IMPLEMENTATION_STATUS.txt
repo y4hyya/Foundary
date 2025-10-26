@@ -1,6 +1,6 @@
 # Foundry Implementation Status
 
-## Current Implementation (Prompt 14 Complete)
+## Current Implementation (Prompt 15 Complete)
 
 ### ✅ Completed Features
 
@@ -17,6 +17,7 @@
 - [x] RefundIssued event
 - [x] JobPosted event
 - [x] PollCreated event
+- [x] VoteCast event
 
 #### 3. Error Constants
 - [x] EInvalidFundingGoal (1)
@@ -28,6 +29,9 @@
 - [x] EDeadlineNotPassed (7)
 - [x] EFundingGoalMet (8)
 - [x] EInvalidContribution (9)
+- [x] EPollNotFound (10)
+- [x] EInvalidOption (11)
+- [x] EAlreadyVoted (12)
 
 #### 4. Functions
 - [x] create_project() - Fully implemented and tested
@@ -36,6 +40,7 @@
 - [x] reclaim_funds() - Fully implemented and tested
 - [x] post_job() - Fully implemented and tested
 - [x] create_poll() - Fully implemented and tested
+- [x] vote_on_poll() - Fully implemented and tested
 
 #### 5. Testing
 - [x] test_create_project_success
@@ -71,7 +76,14 @@
 - [x] test_create_poll_binary_choice
 - [x] test_create_poll_many_options
 - [x] test_create_poll_after_funding
-- [x] All tests passing (33/33)
+- [x] test_vote_on_poll_success
+- [x] test_vote_on_poll_not_found
+- [x] test_vote_on_poll_wrong_backer
+- [x] test_vote_on_poll_invalid_option
+- [x] test_vote_on_poll_double_vote
+- [x] test_vote_on_poll_multiple_voters
+- [x] test_vote_on_poll_all_options
+- [x] All tests passing (40/40)
 
 #### 6. Documentation
 - [x] PROJECT_STRUCTURE.txt
@@ -93,7 +105,7 @@ sui move build
 ```
 sui move test
 ✅ Running Move unit tests
-✅ 33/33 tests passed
+✅ 40/40 tests passed
 ✅ 0 failures
 ```
 
@@ -361,7 +373,7 @@ public fun create_poll(
 ### ⏳ Poll System
 - [x] Poll struct definition - COMPLETE ✅
 - [x] create_poll() function - COMPLETE ✅
-- [ ] vote() function
+- [x] ~~vote()~~ → vote_on_poll() function - COMPLETE ✅
 - [ ] get_poll_results() function
 - [ ] close_poll() function
 
@@ -379,29 +391,32 @@ public fun create_poll(
 ```
 foundry/
 ├── sources/
-│   └── foundry.move              [Lines: 622]
+│   └── foundry.move              [Lines: 713]
 │       ├── Imports (11)          ✅
-│       ├── Error constants (9)   ✅
+│       ├── Error constants (12)  ✅
 │       ├── Structs (4)           ✅
-│       ├── Events (6)            ✅
+│       ├── Events (7)            ✅
 │       ├── create_project()      ✅
 │       ├── fund_project()        ✅
 │       ├── claim_funds()         ✅
 │       ├── reclaim_funds()       ✅
 │       ├── post_job()            ✅
 │       ├── create_poll()         ✅
+│       ├── vote_on_poll()        ✅
 │       └── Test helpers          ✅
 │
 ├── tests/
-│   └── foundry_tests.move        [Lines: 1512]
+│   └── foundry_tests.move        [Lines: 2086]
 │       ├── Test imports          ✅
 │       ├── Test constants        ✅
-│       └── 33 test cases         ✅
+│       └── 40 test cases         ✅
 │
 ├── Move.toml                      ✅
 ├── CLAIM_FUNDS_DOCS.txt           ✅
 ├── RECLAIM_FUNDS_DOCS.txt         ✅
 ├── JOB_SYSTEM_DOCS.txt            ✅
+├── POLL_SYSTEM_DOCS.txt           ✅
+├── VOTE_SYSTEM_DOCS.txt           ✅
 └── IMPLEMENTATION_STATUS.txt      ✅
 ```
 
@@ -475,12 +490,12 @@ frontend/
 ## Code Quality
 
 ### Metrics
-- **Total Lines**: ~2134 (module + tests)
-- **Functions**: 6 public, 1 test helper
+- **Total Lines**: ~2799 (module + tests)
+- **Functions**: 7 public, 1 test helper
 - **Structs**: 4 (all implemented)
-- **Events**: 6 (all integrated)
-- **Error Constants**: 9
-- **Tests**: 33 (all passing)
+- **Events**: 7 (all integrated)
+- **Error Constants**: 12
+- **Tests**: 40 (all passing)
 - **Documentation**: Comprehensive inline docs + status file
 
 ### Standards Compliance
@@ -494,9 +509,46 @@ frontend/
 
 ---
 
+## vote_on_poll Function Details
+
+### Signature
+```move
+public fun vote_on_poll(
+    project: &mut Project,
+    poll_id: u64,
+    contribution: &Contribution,
+    option_index: u64,
+    ctx: &mut TxContext
+)
+```
+
+### Implementation Checklist
+- [x] Poll existence verification
+- [x] Contribution validation (correct project)
+- [x] Contribution ownership verification
+- [x] Option index validation
+- [x] Double-voting prevention check
+- [x] Vote count increment
+- [x] Voter registration
+- [x] Event emission (VoteCast)
+- [x] Documentation
+- [x] Test coverage
+
+### Key Features
+✅ Contribution as proof of backing
+✅ Double-voting prevention (voters table)
+✅ Option validation
+✅ Vote counting per option
+✅ Event emission for indexing
+✅ Secure access control
+✅ Multiple voters support
+✅ Comprehensive error handling
+
+---
+
 ## Summary
 
-**Status**: Prompt 14 COMPLETE ✅
+**Status**: Prompt 15 COMPLETE ✅
 **Functions Implemented**:
 - create_project() - Full ✅
 - fund_project() - Full ✅
@@ -504,20 +556,21 @@ frontend/
 - reclaim_funds() - Full ✅
 - post_job() - Full ✅
 - create_poll() - Full ✅
+- vote_on_poll() - Full ✅
 
-**Tests**: 33/33 passing ✅
+**Tests**: 40/40 passing ✅
 **Integration**: Frontend ready
-**Ready For**: Vote function or getter functions (Prompt 15+)
+**Ready For**: Getter functions or poll results (Prompt 16+)
 
 **Module Health**: 🟢 Excellent
 - Compiles successfully
-- All tests passing (33/33)
+- All tests passing (40/40)
 - Well documented
 - Security conscious
 - Complete crowdfunding cycle (create → fund → claim OR reclaim)
 - Job posting system implemented
-- Poll creation system implemented
-- Ready for voting & getter functions
+- Poll creation & voting system implemented
+- Ready for getter functions & poll results
 
 **Capabilities Unlocked**:
 - ✅ Users can create projects
@@ -535,15 +588,18 @@ frontend/
 - ✅ Owners can create polls for voting
 - ✅ Polls track votes and prevent double voting
 - ✅ Multiple options per poll
+- ✅ Contributors can vote on polls
+- ✅ Contribution as proof of backing for voting
+- ✅ Vote counting and double-vote prevention
 - ⏳ Getter functions pending
 - ⏳ Job management (update/delete) pending
-- ⏳ Vote function pending
+- ⏳ Poll results getter pending
 
 ---
 
-**Last Updated**: Prompt 14 completion
+**Last Updated**: Prompt 15 completion
 **Network**: Sui Testnet
 **Build**: Successful
-**Tests**: 33/33 passing
-**Lines of Code**: ~622 (module) + ~1512 (tests)
+**Tests**: 40/40 passing
+**Lines of Code**: ~713 (module) + ~2086 (tests)
 

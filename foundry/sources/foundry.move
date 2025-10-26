@@ -26,6 +26,9 @@ module foundry::foundry {
     const EDeadlineNotPassed: u64 = 7;
     const EFundingGoalMet: u64 = 8;
     const EInvalidContribution: u64 = 9;
+    const EPollNotFound: u64 = 10;
+    const EInvalidOption: u64 = 11;
+    const EAlreadyVoted: u64 = 12;
 
     // === Structs ===
 
@@ -178,6 +181,15 @@ module foundry::foundry {
         poll_id: u64,
         question: String,
         options_count: u64,
+    }
+
+    /// Event emitted when a vote is cast on a poll
+    public struct VoteCast has copy, drop {
+        project_id: address,
+        poll_id: u64,
+        voter: address,
+        option_index: u64,
+        new_vote_count: u64,
     }
 
     // === Public Functions ===
@@ -611,13 +623,90 @@ module foundry::foundry {
         });
     }
 
-    // === Private Functions ===
-    // To be implemented in subsequent prompts
+        /// Casts a vote on a poll within a project
+        /// 
+        /// Allows contributors to vote on polls. Each contributor can only vote once per poll.
+        /// The Contribution object serves as proof of backing and voting eligibility.
+        /// 
+        /// # Arguments
+        /// * `project` - Mutable reference to the Project containing the poll
+        /// * `poll_id` - ID of the poll to vote on
+        /// * `contribution` - Immutable reference to the voter's Contribution object (proof of backing)
+        /// * `option_index` - Index of the option to vote for (0-based)
+        /// * `ctx` - Transaction context
+        /// 
+        /// # Returns
+        /// Updates the poll's vote count for the chosen option
+        /// 
+        /// # Aborts
+        /// * `EPollNotFound` - If the poll_id doesn't exist in the project
+        /// * `EInvalidContribution` - If the contribution is not for this project
+        /// * `EInvalidOption` - If the option_index is out of bounds
+        /// * `EAlreadyVoted` - If the voter has already voted on this poll
+        /// 
+        /// # Examples
+        /// ```
+        /// // Contributor votes on poll option 0
+        /// vote_on_poll(&mut project, 0, &contribution, 0, ctx);
+        /// // Vote count for option 0 is incremented
+        /// ```
+        public fun vote_on_poll(
+            project: &mut Project,
+            poll_id: u64,
+            contribution: &Contribution,
+            option_index: u64,
+            ctx: &mut TxContext
+        ) {
+            // Get caller's address
+            let caller = tx_context::sender(ctx);
+            
+            // Verify the poll exists in the project
+            assert!(table::contains(&project.polls, poll_id), EPollNotFound);
+            
+            // Verify the contribution is for this project
+            let project_id = object::id(project);
+            assert!(contribution.project_id == project_id, EInvalidContribution);
+            
+            // Verify the caller owns the contribution
+            assert!(contribution.backer_address == caller, EInvalidContribution);
+            
+            // Borrow mutable reference to the poll
+            let poll = table::borrow_mut(&mut project.polls, poll_id);
+            
+            // Verify the option index is valid
+            let options_count = vector::length(&poll.options);
+            assert!(option_index < options_count, EInvalidOption);
+            
+            // Verify the caller hasn't voted yet
+            assert!(!table::contains(&poll.voters, caller), EAlreadyVoted);
+            
+            // Get current vote count for the option
+            let current_votes = *table::borrow(&poll.votes, option_index);
+            
+            // Increment the vote count
+            let new_vote_count = current_votes + 1;
+            *table::borrow_mut(&mut poll.votes, option_index) = new_vote_count;
+            
+            // Mark the caller as having voted
+            table::add(&mut poll.voters, caller, true);
+            
+            // Emit vote cast event
+            event::emit(VoteCast {
+                project_id: object::id_to_address(&project_id),
+                poll_id,
+                voter: caller,
+                option_index,
+                new_vote_count,
+            });
+        }
 
-    // === Test Functions ===
-    #[test_only]
-    public fun init_for_testing(ctx: &mut TxContext) {
-        // Test initialization function
+        // === Private Functions ===
+        // To be implemented in subsequent prompts
+
+        // === Test Functions ===
+        #[test_only]
+        public fun init_for_testing(ctx: &mut TxContext) {
+            // Test initialization function
+        }
     }
-}
 
