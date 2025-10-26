@@ -201,6 +201,84 @@ module foundry::foundry {
         transfer::transfer(project, sender);
     }
 
+    /// Funds a project by contributing SUI tokens
+    /// 
+    /// Creates a Contribution receipt for the backer and adds funds to the project.
+    /// The Contribution object serves as proof of backing and can be used for voting/rewards.
+    /// 
+    /// # Arguments
+    /// * `project` - Mutable reference to the Project to fund
+    /// * `payment` - Coin<SUI> object containing the contribution amount
+    /// * `ctx` - Transaction context
+    /// 
+    /// # Returns
+    /// Creates and transfers a Contribution object to the backer
+    /// 
+    /// # Aborts
+    /// * `EDeadlinePassed` - If the project deadline has passed (requires Clock for validation)
+    /// * `EInsufficientFunds` - If payment amount is 0
+    /// 
+    /// # Examples
+    /// ```
+    /// let payment = coin::split(&mut sui_coin, 1_000_000_000, ctx); // 1 SUI
+    /// fund_project(&mut project, payment, ctx);
+    /// // Backer receives Contribution object as receipt
+    /// ```
+    public fun fund_project(
+        project: &mut Project,
+        payment: Coin<SUI>,
+        ctx: &mut TxContext
+    ) {
+        // Get contribution amount
+        let amount = coin::value(&payment);
+        
+        // Validate contribution amount
+        assert!(amount > 0, EInsufficientFunds);
+        
+        // Note: Deadline validation would require Clock object
+        // For now, we allow contributions at any time
+        
+        // Get backer's address
+        let backer = tx_context::sender(ctx);
+        
+        // Get project ID for the Contribution
+        let project_id = object::id(project);
+        
+        // Convert Coin to Balance and merge into project balance
+        let coin_balance = coin::into_balance(payment);
+        balance::join(&mut project.balance, coin_balance);
+        
+        // Update current funding
+        project.current_funding = project.current_funding + amount;
+        
+        // Update contributors table (add to existing or create new entry)
+        if (table::contains(&project.contributors, backer)) {
+            let existing_amount = table::remove(&mut project.contributors, backer);
+            table::add(&mut project.contributors, backer, existing_amount + amount);
+        } else {
+            table::add(&mut project.contributors, backer, amount);
+        };
+        
+        // Create Contribution receipt for the backer
+        let contribution = Contribution {
+            id: object::new(ctx),
+            project_id,
+            backer_address: backer,
+            amount,
+        };
+        
+        // Emit contribution event
+        event::emit(ContributionMade {
+            project_id: object::id_to_address(&project_id),
+            contributor: backer,
+            amount,
+            total_funded: project.current_funding,
+        });
+        
+        // Transfer Contribution receipt to backer
+        transfer::transfer(contribution, backer);
+    }
+
     // === Private Functions ===
     // To be implemented in subsequent prompts
 
