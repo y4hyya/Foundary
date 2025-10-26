@@ -1,6 +1,6 @@
 # Foundry Implementation Status
 
-## Current Implementation (Prompt 10 Complete)
+## Current Implementation (Prompt 11 Complete)
 
 ### ✅ Completed Features
 
@@ -26,6 +26,7 @@
 #### 4. Functions
 - [x] create_project() - Fully implemented and tested
 - [x] fund_project() - Fully implemented and tested
+- [x] claim_funds() - Fully implemented and tested
 
 #### 5. Testing
 - [x] test_create_project_success
@@ -38,7 +39,13 @@
 - [x] test_fund_project_same_backer_multiple_times
 - [x] test_fund_project_zero_amount
 - [x] test_fund_project_reaches_goal
-- [x] All tests passing (10/10)
+- [x] test_claim_funds_success
+- [x] test_claim_funds_non_owner
+- [x] test_claim_funds_goal_not_met
+- [x] test_claim_funds_double_withdrawal
+- [x] test_claim_funds_overfunded_project
+- [x] test_claim_funds_exactly_at_goal
+- [x] All tests passing (16/16)
 
 #### 6. Documentation
 - [x] PROJECT_STRUCTURE.txt
@@ -60,7 +67,7 @@ sui move build
 ```
 sui move test
 ✅ Running Move unit tests
-✅ 10/10 tests passed
+✅ 16/16 tests passed
 ✅ 0 failures
 ```
 
@@ -167,11 +174,46 @@ public fun fund_project(
 
 ---
 
+## claim_funds Function Details
+
+### Signature
+```move
+public fun claim_funds(
+    project: &mut Project,
+    ctx: &mut TxContext
+)
+```
+
+### Implementation Checklist
+- [x] Caller verification (must be owner)
+- [x] Funding goal verification (current >= goal)
+- [x] Withdrawal status check (prevent double claim)
+- [x] Balance extraction (withdraw_all)
+- [x] Balance to Coin conversion
+- [x] is_withdrawn flag update
+- [x] Event emission (FundsWithdrawn)
+- [x] Transfer coin to owner
+- [x] Documentation
+- [x] Test coverage
+
+### Key Features
+✅ Owner-only access control
+✅ Funding goal verification
+✅ Prevents double withdrawal
+✅ Withdraws entire balance
+✅ Emits event for indexing
+✅ Transfers SUI to owner wallet
+✅ Updates project state (is_withdrawn)
+✅ Handles overfunded projects
+✅ Validates all preconditions
+
+---
+
 ## Pending Implementation (Future Prompts)
 
 ### ⏳ Core Functions
 - [x] ~~contribute()~~ → fund_project() - COMPLETE ✅
-- [ ] withdraw_funds() - Allow owner to withdraw after goal met
+- [x] ~~withdraw_funds()~~ → claim_funds() - COMPLETE ✅
 - [ ] refund() - Return funds if goal not met
 - [ ] get_project_info() - Query project details
 
@@ -201,25 +243,23 @@ public fun fund_project(
 ```
 foundry/
 ├── sources/
-│   └── foundry.move              [Lines: 214]
+│   └── foundry.move              [Lines: 354]
 │       ├── Imports               ✅
 │       ├── Error constants       ✅
 │       ├── Structs               ✅
 │       ├── Events                ✅
 │       ├── create_project()      ✅
+│       ├── fund_project()        ✅
+│       ├── claim_funds()         ✅
 │       └── Test helpers          ✅
 │
 ├── tests/
-│   └── foundry_tests.move        [Lines: 139]
+│   └── foundry_tests.move        [Lines: 654]
 │       ├── Test imports          ✅
 │       ├── Test constants        ✅
-│       └── 5 test cases          ✅
+│       └── 16 test cases         ✅
 │
 ├── Move.toml                      ✅
-├── PROJECT_STRUCTURE.txt          ✅
-├── CONTRIBUTION_DESIGN.txt        ✅
-├── STRUCTS_SUMMARY.txt            ✅
-├── CREATE_PROJECT_DOCS.txt        ✅
 └── IMPLEMENTATION_STATUS.txt      ✅
 ```
 
@@ -264,24 +304,16 @@ frontend/
 
 ---
 
-## Next Steps (Prompt 10+)
+## Next Steps (Prompt 12+)
 
 ### Immediate Priority
-1. **Implement contribute() function**
-   - Accept Coin<SUI> payment
-   - Update project balance and current_funding
-   - Add to contributors table
-   - Mint and transfer Contribution object
-   - Emit ContributionMade event
+1. **Implement refund() function**
+   - Check deadline has passed
+   - Verify goal not met
+   - Return funds to contributors
+   - Proportional refunds based on contribution
 
-2. **Implement withdraw_funds() function**
-   - Check ownership
-   - Verify goal met and deadline passed
-   - Transfer balance to owner
-   - Mark as withdrawn
-   - Emit FundsWithdrawn event
-
-3. **Add getter functions**
+2. **Add getter functions**
    - get_project_owner()
    - get_funding_status()
    - get_contributor_amount()
@@ -307,11 +339,11 @@ frontend/
 ## Code Quality
 
 ### Metrics
-- **Total Lines**: ~350 (module + tests)
-- **Functions**: 1 public, 1 test helper
+- **Total Lines**: ~1008 (module + tests)
+- **Functions**: 3 public, 1 test helper
 - **Structs**: 4 (2 main, 2 placeholder)
-- **Tests**: 5 (all passing)
-- **Documentation**: 5 comprehensive files
+- **Tests**: 16 (all passing)
+- **Documentation**: Comprehensive inline docs + status file
 
 ### Standards Compliance
 ✅ Sui Move conventions followed
@@ -326,22 +358,23 @@ frontend/
 
 ## Summary
 
-**Status**: Prompt 10 COMPLETE ✅
+**Status**: Prompt 11 COMPLETE ✅
 **Functions Implemented**:
 - create_project() - Full ✅
 - fund_project() - Full ✅
+- claim_funds() - Full ✅
 
-**Tests**: 10/10 passing ✅
+**Tests**: 16/16 passing ✅
 **Integration**: Frontend ready
-**Ready For**: withdraw_funds() implementation (Prompt 11+)
+**Ready For**: refund() implementation or Job/Poll systems (Prompt 12+)
 
 **Module Health**: 🟢 Excellent
 - Compiles successfully
-- All tests passing
+- All tests passing (16/16)
 - Well documented
 - Security conscious
-- Core funding flow complete
-- Ready for withdrawal & advanced features
+- Complete funding cycle (create → fund → claim)
+- Ready for refunds & advanced features
 
 **Capabilities Unlocked**:
 - ✅ Users can create projects
@@ -349,15 +382,16 @@ frontend/
 - ✅ Contributors receive receipts
 - ✅ Projects track funding
 - ✅ Events enable indexing
-- ⏳ Withdrawal pending
+- ✅ Owners can claim funds after goal met
+- ✅ Double withdrawal prevention
 - ⏳ Refunds pending
 - ⏳ Jobs/Polls pending
 
 ---
 
-**Last Updated**: Prompt 10 completion
+**Last Updated**: Prompt 11 completion
 **Network**: Sui Testnet
 **Build**: Successful
-**Tests**: 10/10 passing
-**Lines of Code**: ~290 (module) + ~352 (tests)
+**Tests**: 16/16 passing
+**Lines of Code**: ~354 (module) + ~654 (tests)
 

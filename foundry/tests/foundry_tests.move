@@ -350,4 +350,304 @@ module foundry::foundry_tests {
         
         ts::end(scenario);
     }
+
+    // === Claim Funds Tests ===
+
+    #[test]
+    fun test_claim_funds_success() {
+        let mut scenario = ts::begin(CREATOR);
+        let backer = @0xBABE;
+        let small_goal = 5_000_000_000; // 5 SUI
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"claimable_project"),
+                small_goal,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Backer funds the project to meet goal
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(small_goal, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Owner claims funds
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::claim_funds(&mut project, ctx);
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        // Verify owner received the coin
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            // Owner should have received a Coin<SUI>
+            assert!(ts::has_most_recent_for_sender<sui::coin::Coin<sui::sui::SUI>>(&scenario), 0);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 3)] // ENotProjectOwner
+    fun test_claim_funds_non_owner() {
+        let mut scenario = ts::begin(CREATOR);
+        let backer = @0xBABE;
+        let non_owner = @0xDEAD;
+        let small_goal = 5_000_000_000; // 5 SUI
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"unauthorized_claim"),
+                small_goal,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Backer funds the project
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(small_goal, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Non-owner tries to claim (should fail)
+        ts::next_tx(&mut scenario, non_owner);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::claim_funds(&mut project, ctx); // Should abort
+            
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 4)] // EFundingGoalNotMet
+    fun test_claim_funds_goal_not_met() {
+        let mut scenario = ts::begin(CREATOR);
+        let backer = @0xBABE;
+        let goal = 10_000_000_000; // 10 SUI
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"unmet_goal_project"),
+                goal,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Backer funds only partially (5 SUI < 10 SUI goal)
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Owner tries to claim before goal is met (should fail)
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::claim_funds(&mut project, ctx); // Should abort
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 5)] // EProjectAlreadyFunded
+    fun test_claim_funds_double_withdrawal() {
+        let mut scenario = ts::begin(CREATOR);
+        let backer = @0xBABE;
+        let small_goal = 5_000_000_000; // 5 SUI
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"double_claim_project"),
+                small_goal,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Backer funds the project
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(small_goal, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Owner claims funds (first time - success)
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::claim_funds(&mut project, ctx);
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        // Owner tries to claim again (should fail)
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::claim_funds(&mut project, ctx); // Should abort
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_claim_funds_overfunded_project() {
+        let mut scenario = ts::begin(CREATOR);
+        let backer1 = @0xBABE;
+        let backer2 = @0xBEEF;
+        let goal = 5_000_000_000; // 5 SUI
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"overfunded_project"),
+                goal,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // First backer funds 5 SUI (meets goal)
+        ts::next_tx(&mut scenario, backer1);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(5_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Second backer adds 3 SUI more (overfunding)
+        ts::next_tx(&mut scenario, backer2);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(3_000_000_000, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Owner claims all funds (8 SUI total)
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::claim_funds(&mut project, ctx);
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        // Verify owner received the coin
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            assert!(ts::has_most_recent_for_sender<sui::coin::Coin<sui::sui::SUI>>(&scenario), 0);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_claim_funds_exactly_at_goal() {
+        let mut scenario = ts::begin(CREATOR);
+        let backer = @0xBABE;
+        let goal = 10_000_000_000; // 10 SUI
+        
+        // Create project
+        {
+            let ctx = ts::ctx(&mut scenario);
+            foundry::create_project(
+                string::utf8(b"exact_goal_project"),
+                goal,
+                DEADLINE,
+                ctx
+            );
+        };
+        
+        // Backer funds exactly the goal amount
+        ts::next_tx(&mut scenario, backer);
+        {
+            let mut project = ts::take_from_address<foundry::Project>(&scenario, CREATOR);
+            let ctx = ts::ctx(&mut scenario);
+            let payment = sui::coin::mint_for_testing<sui::sui::SUI>(goal, ctx);
+            
+            foundry::fund_project(&mut project, payment, ctx);
+            ts::return_to_address(CREATOR, project);
+        };
+        
+        // Owner claims funds
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            let mut project = ts::take_from_sender<foundry::Project>(&scenario);
+            let ctx = ts::ctx(&mut scenario);
+            
+            foundry::claim_funds(&mut project, ctx);
+            
+            ts::return_to_sender(&scenario, project);
+        };
+        
+        // Verify claim was successful
+        ts::next_tx(&mut scenario, CREATOR);
+        {
+            assert!(ts::has_most_recent_for_sender<sui::coin::Coin<sui::sui::SUI>>(&scenario), 0);
+        };
+        
+        ts::end(scenario);
+    }
 }

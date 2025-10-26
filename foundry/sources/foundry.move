@@ -279,6 +279,69 @@ module foundry::foundry {
         transfer::transfer(contribution, backer);
     }
 
+    /// Allows the project owner to claim funds after reaching the funding goal
+    /// 
+    /// The owner can withdraw all accumulated SUI tokens once the funding goal is met.
+    /// This function ensures only the legitimate owner can claim funds and prevents
+    /// double withdrawal.
+    /// 
+    /// # Arguments
+    /// * `project` - Mutable reference to the Project
+    /// * `ctx` - Transaction context
+    /// 
+    /// # Returns
+    /// Transfers all SUI balance to the project owner
+    /// 
+    /// # Aborts
+    /// * `ENotProjectOwner` - If caller is not the project owner
+    /// * `EFundingGoalNotMet` - If current_funding < funding_goal
+    /// * `EProjectAlreadyFunded` - If funds have already been withdrawn
+    /// 
+    /// # Examples
+    /// ```
+    /// // Owner claims funds after goal is reached
+    /// claim_funds(&mut project, ctx);
+    /// // All SUI transferred to owner's wallet
+    /// ```
+    public fun claim_funds(
+        project: &mut Project,
+        ctx: &mut TxContext
+    ) {
+        // Get caller's address
+        let caller = tx_context::sender(ctx);
+        
+        // Verify caller is the project owner
+        assert!(caller == project.owner, ENotProjectOwner);
+        
+        // Verify funding goal has been met
+        assert!(project.current_funding >= project.funding_goal, EFundingGoalNotMet);
+        
+        // Verify funds have not already been withdrawn
+        assert!(!project.is_withdrawn, EProjectAlreadyFunded);
+        
+        // Get the total balance amount
+        let total_balance = balance::value(&project.balance);
+        
+        // Extract all balance from project
+        let withdrawn_balance = balance::withdraw_all(&mut project.balance);
+        
+        // Convert balance to coin for transfer
+        let payment_coin = coin::from_balance(withdrawn_balance, ctx);
+        
+        // Mark project as withdrawn
+        project.is_withdrawn = true;
+        
+        // Emit funds withdrawn event
+        event::emit(FundsWithdrawn {
+            project_id: object::uid_to_address(&project.id),
+            owner: caller,
+            amount: total_balance,
+        });
+        
+        // Transfer the coin to the owner
+        transfer::public_transfer(payment_coin, caller);
+    }
+
     // === Private Functions ===
     // To be implemented in subsequent prompts
 
