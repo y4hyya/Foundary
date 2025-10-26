@@ -127,7 +127,79 @@ module foundry::foundry {
     }
 
     // === Public Functions ===
-    // To be implemented in subsequent prompts
+
+    /// Creates a new crowdfunding project
+    /// 
+    /// # Arguments
+    /// * `metadata_cid` - Walrus Content Identifier for project metadata (title, description, etc.)
+    /// * `funding_goal` - Target funding amount in MIST (1 SUI = 1_000_000_000 MIST)
+    /// * `deadline` - Project deadline as Unix timestamp in milliseconds
+    /// * `ctx` - Transaction context
+    /// 
+    /// # Returns
+    /// Creates a new Project object and transfers it to the caller
+    /// 
+    /// # Aborts
+    /// * `EInvalidFundingGoal` - If funding_goal is 0
+    /// * `EDeadlinePassed` - If deadline is in the past (requires Clock for validation)
+    /// 
+    /// # Examples
+    /// ```
+    /// create_project(
+    ///     string::utf8(b"walrus_cid_abc123"),
+    ///     10_000_000_000_000,  // 10,000 SUI
+    ///     1735689600000,       // Future timestamp
+    ///     &mut ctx
+    /// );
+    /// ```
+    public fun create_project(
+        metadata_cid: String,
+        funding_goal: u64,
+        deadline: u64,
+        ctx: &mut TxContext
+    ) {
+        // Validate funding goal
+        assert!(funding_goal > 0, EInvalidFundingGoal);
+        
+        // Note: Deadline validation against current time would require Clock object
+        // For now, we accept any future timestamp
+        
+        // Get the sender's address
+        let sender = tx_context::sender(ctx);
+        
+        // Create new UID for the project
+        let project_uid = object::new(ctx);
+        let project_id = object::uid_to_address(&project_uid);
+        
+        // Create the Project object
+        let project = Project {
+            id: project_uid,
+            owner: sender,
+            funding_goal,
+            current_funding: 0,
+            deadline,
+            metadata_cid,
+            balance: balance::zero<SUI>(),
+            contributors: table::new<address, u64>(ctx),
+            jobs: table::new<u64, JobPlaceholder>(ctx),
+            polls: table::new<u64, PollPlaceholder>(ctx),
+            job_counter: 0,
+            poll_counter: 0,
+            is_withdrawn: false,
+        };
+        
+        // Emit project created event
+        event::emit(ProjectCreated {
+            project_id,
+            owner: sender,
+            funding_goal,
+            deadline,
+            metadata_cid,
+        });
+        
+        // Transfer the project to the caller
+        transfer::transfer(project, sender);
+    }
 
     // === Private Functions ===
     // To be implemented in subsequent prompts

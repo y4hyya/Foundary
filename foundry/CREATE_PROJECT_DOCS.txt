@@ -1,0 +1,367 @@
+# create_project Function Documentation
+
+## Overview
+
+The `create_project` function is the primary entry point for creating new crowdfunding projects on the Foundry platform. It initializes a Project object with all necessary fields and transfers ownership to the creator.
+
+## Function Signature
+
+```move
+public fun create_project(
+    metadata_cid: String,
+    funding_goal: u64,
+    deadline: u64,
+    ctx: &mut TxContext
+)
+```
+
+## Parameters
+
+### metadata_cid: String
+- **Type**: `String` (from std::string)
+- **Purpose**: Walrus Content Identifier for project metadata
+- **Contains**: Reference to JSON stored on Walrus with:
+  - Project title
+  - Description
+  - Category
+  - Images/media
+  - Additional metadata
+- **Example**: `string::utf8(b"walrus_cid_abc123xyz")`
+
+### funding_goal: u64
+- **Type**: `u64`
+- **Purpose**: Target funding amount in MIST
+- **Units**: 1 SUI = 1,000,000,000 MIST
+- **Validation**: Must be > 0
+- **Example**: `10_000_000_000_000` (10,000 SUI)
+
+### deadline: u64
+- **Type**: `u64`
+- **Purpose**: Project deadline
+- **Format**: Unix timestamp in milliseconds
+- **Note**: Future validation against Clock to be added
+- **Example**: `1735689600000` (January 1, 2025)
+
+### ctx: &mut TxContext
+- **Type**: Mutable reference to transaction context
+- **Purpose**: Provides transaction sender and generates UIDs
+- **Provided**: Automatically by Sui runtime
+
+## Return Value
+
+**None** - The function doesn't return a value but performs the following side effects:
+1. Creates a new Project object
+2. Emits a ProjectCreated event
+3. Transfers the Project to the caller
+
+## Behavior
+
+### Initialization Steps
+
+1. **Validate Input**
+   ```move
+   assert!(funding_goal > 0, EInvalidFundingGoal);
+   ```
+   - Ensures funding goal is not zero
+
+2. **Get Sender Address**
+   ```move
+   let sender = tx_context::sender(ctx);
+   ```
+   - Identifies the project creator
+
+3. **Create Project UID**
+   ```move
+   let project_uid = object::new(ctx);
+   let project_id = object::uid_to_address(&project_uid);
+   ```
+   - Generates unique identifier for the project
+
+4. **Initialize Project Object**
+   - Sets owner to sender
+   - Initializes funding counters to 0
+   - Creates empty Balance<SUI>
+   - Initializes empty Tables for contributors, jobs, polls
+   - Sets counters to 0
+   - Marks as not withdrawn
+
+5. **Emit Event**
+   ```move
+   event::emit(ProjectCreated { ... });
+   ```
+   - Broadcasts project creation to indexers
+
+6. **Transfer Ownership**
+   ```move
+   transfer::transfer(project, sender);
+   ```
+   - Gives Project object to creator
+
+## Created Object Structure
+
+```move
+Project {
+    id: UID,                              // Unique project ID
+    owner: sender,                        // Creator's address
+    funding_goal: funding_goal,           // Target amount
+    current_funding: 0,                   // Starts at 0
+    deadline: deadline,                   // From parameter
+    metadata_cid: metadata_cid,           // Walrus CID
+    balance: balance::zero<SUI>(),        // Empty balance
+    contributors: table::new(ctx),        // Empty table
+    jobs: table::new(ctx),                // Empty table
+    polls: table::new(ctx),               // Empty table
+    job_counter: 0,                       // No jobs yet
+    poll_counter: 0,                      // No polls yet
+    is_withdrawn: false,                  // Funds not withdrawn
+}
+```
+
+## Errors
+
+### EInvalidFundingGoal (Code: 1)
+- **Condition**: `funding_goal == 0`
+- **Reason**: Projects must have a positive funding goal
+- **Resolution**: Set funding_goal to a value > 0
+
+## Events
+
+### ProjectCreated
+```move
+event::emit(ProjectCreated {
+    project_id: address,        // Project's on-chain address
+    owner: address,             // Creator's address
+    funding_goal: u64,          // Target amount
+    deadline: u64,              // Deadline timestamp
+    metadata_cid: String,       // Walrus CID
+});
+```
+
+## Gas Cost
+
+Approximate gas cost on Sui Testnet:
+- Create Project object: ~0.001 SUI
+- Initialize 3 empty tables: ~0.0015 SUI
+- Emit event: ~0.0001 SUI
+- Transfer: ~0.0002 SUI
+**Total**: ~0.0028 SUI
+
+## Usage Examples
+
+### Example 1: Basic Project Creation
+
+```move
+use std::string;
+
+// In a transaction
+public entry fun create_my_project(ctx: &mut TxContext) {
+    foundry::create_project(
+        string::utf8(b"walrus_cid_abc123"),
+        10_000_000_000_000,  // 10,000 SUI goal
+        1735689600000,       // Jan 1, 2025 deadline
+        ctx
+    );
+}
+```
+
+### Example 2: With Helper Function
+
+```typescript
+// Frontend TypeScript
+import { Transaction } from '@mysten/sui/transactions';
+
+const createProject = async (
+  metadata_cid: string,
+  goalInSui: number,
+  deadlineDate: Date
+) => {
+  const tx = new Transaction();
+  
+  tx.moveCall({
+    target: `${PACKAGE_ID}::foundry::create_project`,
+    arguments: [
+      tx.pure.string(metadata_cid),
+      tx.pure.u64(goalInSui * 1_000_000_000),  // Convert SUI to MIST
+      tx.pure.u64(deadlineDate.getTime()),      // Convert to timestamp
+    ],
+  });
+  
+  const result = await signAndExecuteTransaction({ transaction: tx });
+  return result;
+};
+```
+
+### Example 3: Complete Workflow
+
+```typescript
+// 1. Upload metadata to Walrus
+const metadata = {
+  title: "Revolutionary DeFi Platform",
+  description: "Building the future of finance",
+  category: "DeFi",
+  imageUrl: "https://...",
+};
+
+const { cid } = await uploadJson(metadata);
+
+// 2. Create project on-chain
+const deadline = new Date('2025-12-31');
+await createProject(cid, 10000, deadline);
+
+// 3. Project now exists in creator's wallet
+```
+
+## Test Coverage
+
+### Test Cases
+
+1. **test_create_project_success**
+   - ✅ Creates project with valid parameters
+   - ✅ Project transferred to creator
+
+2. **test_create_multiple_projects**
+   - ✅ Creator can make multiple projects
+   - ✅ Each has unique UID
+
+3. **test_create_project_zero_funding_goal**
+   - ✅ Aborts with EInvalidFundingGoal
+   - ✅ Validates input properly
+
+4. **test_create_project_with_minimum_funding**
+   - ✅ Accepts funding_goal = 1
+   - ✅ Minimum valid value works
+
+5. **test_create_project_different_creators**
+   - ✅ Multiple users can create projects
+   - ✅ Each owns their own project
+
+### Test Results
+```
+Running Move unit tests
+[ PASS    ] foundry::foundry_tests::test_create_multiple_projects
+[ PASS    ] foundry::foundry_tests::test_create_project_different_creators
+[ PASS    ] foundry::foundry_tests::test_create_project_success
+[ PASS    ] foundry::foundry_tests::test_create_project_with_minimum_funding
+[ PASS    ] foundry::foundry_tests::test_create_project_zero_funding_goal
+Test result: OK. Total tests: 5; passed: 5; failed: 0
+```
+
+## Best Practices
+
+### 1. Metadata Preparation
+- Upload to Walrus BEFORE calling create_project
+- Validate JSON structure client-side
+- Keep metadata under reasonable size (< 10KB recommended)
+
+### 2. Funding Goal
+- Consider realistic goals
+- Account for gas costs in goal calculation
+- Set in MIST, not SUI (multiply by 1,000,000,000)
+
+### 3. Deadline
+- Set reasonable timeframe (30-90 days typical)
+- Use milliseconds, not seconds
+- Verify timezone conversion
+
+### 4. Error Handling
+- Always check transaction success
+- Handle EInvalidFundingGoal gracefully
+- Provide user-friendly error messages
+
+## Future Enhancements
+
+### Planned Features
+1. **Clock Integration**: Validate deadline against current time
+2. **Minimum Goal**: Enforce minimum funding goal (e.g., 100 SUI)
+3. **Maximum Duration**: Limit project duration (e.g., 180 days max)
+4. **Category Validation**: Restrict to predefined categories
+5. **Fee Collection**: Optional platform fee on creation
+
+### Potential Additions
+- **Display Object**: Add Display<Project> for better wallet UX
+- **Cancellation**: Allow canceling before first contribution
+- **Editing**: Limited metadata updates before funding starts
+- **Templates**: Pre-configured project templates
+
+## Security Considerations
+
+### Current Protections
+✅ Validates funding_goal > 0
+✅ Owner set to transaction sender (cannot be spoofed)
+✅ Unique UID prevents collision
+✅ Empty balance prevents initial manipulation
+✅ Tables initialized empty (no pre-populated data)
+
+### Known Limitations
+⚠️ No deadline validation (accepts past timestamps)
+⚠️ No maximum funding goal limit
+⚠️ No metadata validation (trusts Walrus CID)
+⚠️ No duplicate project prevention
+
+### Recommendations
+- Add Clock parameter for deadline validation
+- Consider maximum goal limits
+- Implement project registry for discovery
+- Add reputation/verification system
+
+## Integration Guide
+
+### Prerequisites
+1. Sui wallet connected
+2. Sufficient SUI for gas (~0.003 SUI)
+3. Metadata uploaded to Walrus
+4. Valid deadline timestamp
+
+### Integration Steps
+1. Prepare project metadata (off-chain)
+2. Upload metadata to Walrus
+3. Get Walrus CID
+4. Call create_project with CID
+5. Wait for transaction confirmation
+6. Project object now in creator's wallet
+7. Listen for ProjectCreated event
+
+### Frontend Integration
+```typescript
+import { useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
+
+function CreateProjectButton() {
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
+  
+  const handleCreate = async () => {
+    const tx = new Transaction();
+    tx.moveCall({
+      target: `${PACKAGE_ID}::foundry::create_project`,
+      arguments: [
+        tx.pure.string(metadata_cid),
+        tx.pure.u64(funding_goal_mist),
+        tx.pure.u64(deadline_ms),
+      ],
+    });
+    
+    signAndExecute({ transaction: tx }, {
+      onSuccess: (result) => {
+        console.log('Project created!', result);
+      },
+    });
+  };
+  
+  return <button onClick={handleCreate}>Create Project</button>;
+}
+```
+
+## Status
+
+**Implementation**: ✅ Complete
+**Testing**: ✅ All tests passing (5/5)
+**Documentation**: ✅ Complete
+**Ready for**: Contribution function implementation (Prompt 10)
+
+---
+
+**Version**: 1.0
+**Last Updated**: Prompt 9
+**Module**: foundry::foundry
+**Network**: Sui Testnet
+

@@ -1,0 +1,441 @@
+# Foundry dApp - Quick Start Guide
+
+## Project Overview
+
+Foundry is a decentralized crowdfunding platform built on Sui blockchain with Walrus storage integration. Create projects, raise funds, and manage campaigns on-chain.
+
+---
+
+## Repository Structure
+
+```
+Foundary/
+├── foundry/                   # Sui Move smart contracts
+│   ├── sources/
+│   │   └── foundry.move      # Main contract (214 lines)
+│   ├── tests/
+│   │   └── foundry_tests.move # Tests (139 lines, 5/5 passing)
+│   ├── Move.toml              # Package manifest
+│   └── *.txt                  # Documentation files
+│
+├── frontend/                  # React + TypeScript frontend
+│   ├── src/
+│   │   ├── components/       # Navbar, WalletConnect
+│   │   ├── pages/            # Home, ProjectDetail, CreateProject
+│   │   ├── utils/            # walrusClient, types
+│   │   └── config/           # Sui network config
+│   ├── package.json
+│   └── vite.config.ts
+│
+├── LICENSE                   # MIT License
+└── .gitignore               # Git ignore rules
+```
+
+---
+
+## Quick Commands
+
+### Smart Contract Development
+
+```bash
+# Navigate to contract directory
+cd foundry
+
+# Build the Move module
+sui move build
+
+# Run tests
+sui move test
+
+# Publish to testnet (when ready)
+sui client publish --gas-budget 100000000
+```
+
+### Frontend Development
+
+```bash
+# Navigate to frontend
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start dev server
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+---
+
+## Implementation Status
+
+### ✅ Completed (Prompts 1-9)
+
+**Smart Contracts:**
+- [x] Project struct (13 fields)
+- [x] Contribution struct (4 fields)
+- [x] create_project() function
+- [x] Event system
+- [x] Error handling
+- [x] Test suite (5/5 passing)
+
+**Frontend:**
+- [x] Vite + React + TypeScript setup
+- [x] Sui dApp Kit integration
+- [x] Wallet connection UI
+- [x] Routing (3 pages)
+- [x] Walrus client utilities
+- [x] Network configuration
+
+### ⏳ Pending (Prompts 10+)
+
+**Smart Contracts:**
+- [ ] contribute() function
+- [ ] withdraw_funds() function
+- [ ] Job system
+- [ ] Poll system
+- [ ] Getter functions
+
+**Frontend:**
+- [ ] Connect to blockchain
+- [ ] Project creation UI
+- [ ] Project listing
+- [ ] Contribution interface
+- [ ] Project dashboard
+
+---
+
+## Key Features
+
+### Current Capabilities
+
+1. **Project Creation**
+   - Define funding goal
+   - Set deadline
+   - Store metadata on Walrus
+   - Own project as NFT-like object
+
+2. **Wallet Integration**
+   - Connect Sui wallets
+   - Auto-connect support
+   - Multi-wallet support
+
+3. **Decentralized Storage**
+   - Walrus integration for metadata
+   - Off-chain JSON storage
+   - On-chain CID references
+
+### Planned Features
+
+4. **Funding System**
+   - Contribute SUI tokens
+   - Receive contribution receipts
+   - Track contributor history
+
+5. **Project Management**
+   - Withdraw funds
+   - Create jobs/tasks
+   - Run polls/votes
+   - Update status
+
+---
+
+## Technology Stack
+
+### Blockchain
+- **Sui**: Layer 1 blockchain
+- **Sui Move**: Smart contract language
+- **Walrus**: Decentralized storage
+
+### Frontend
+- **React 19**: UI framework
+- **TypeScript 5.9**: Type safety
+- **Vite 7**: Build tool
+- **@mysten/dapp-kit**: Sui integration
+- **React Router 7**: Client routing
+
+### Tools
+- **Sui CLI**: Contract deployment
+- **npm**: Package management
+- **Git**: Version control
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+```bash
+# Install Sui CLI
+cargo install --locked --git https://github.com/MystenLabs/sui.git --branch testnet sui
+
+# Install Node.js (v18+)
+# Download from https://nodejs.org/
+
+# Install a Sui wallet
+# - Sui Wallet (Chrome/Firefox extension)
+# - Suiet Wallet
+# - Ethos Wallet
+```
+
+### Setup
+
+1. **Clone Repository**
+```bash
+cd ~/Desktop/Foundary
+```
+
+2. **Build Smart Contract**
+```bash
+cd foundry
+sui move build
+sui move test
+```
+
+3. **Setup Frontend**
+```bash
+cd ../frontend
+npm install
+npm run dev
+```
+
+4. **Access Application**
+```
+http://localhost:5173
+```
+
+---
+
+## Network Configuration
+
+### Current Network: Sui Testnet
+
+**RPC Endpoint**: https://fullnode.testnet.sui.io:443
+**Faucet**: https://faucet.testnet.sui.io/
+**Explorer**: https://suiexplorer.com/?network=testnet
+
+**Walrus Testnet**:
+- Publisher: https://publisher.walrus-testnet.walrus.space
+- Aggregator: https://aggregator.walrus-testnet.walrus.space
+
+### Get Test Tokens
+
+```bash
+# Request SUI tokens from faucet
+sui client faucet
+
+# Or use Discord bot in #faucet channel
+# https://discord.gg/sui
+```
+
+---
+
+## Architecture Overview
+
+### Smart Contract Flow
+
+```
+User → Frontend → Sui Blockchain → Project Object
+                     ↓
+                  Walrus Storage (Metadata)
+```
+
+### Project Creation Flow
+
+```
+1. User fills form
+2. Upload metadata to Walrus → Get CID
+3. Call create_project(cid, goal, deadline)
+4. Project object created on-chain
+5. Ownership transferred to user
+6. Event emitted for indexing
+```
+
+### Contribution Flow (Planned)
+
+```
+1. User selects project
+2. Chooses contribution amount
+3. Calls contribute(project, payment)
+4. Funds added to project balance
+5. Contribution receipt minted
+6. Receipt transferred to user
+```
+
+---
+
+## Documentation Files
+
+### Smart Contract Docs
+- **PROJECT_STRUCTURE.txt**: Detailed struct definitions
+- **CONTRIBUTION_DESIGN.txt**: Contribution receipt design
+- **STRUCTS_SUMMARY.txt**: All struct references
+- **CREATE_PROJECT_DOCS.txt**: Function documentation
+- **IMPLEMENTATION_STATUS.txt**: Current status
+
+### Frontend Docs
+- **frontend/WALLET_SETUP.md**: Wallet integration guide
+- **frontend/src/utils/README.md**: Walrus client docs
+- **frontend/src/components/README.md**: Component docs
+- **frontend/src/routes.md**: Routing configuration
+
+---
+
+## Testing
+
+### Run Smart Contract Tests
+
+```bash
+cd foundry
+sui move test
+
+# Expected output:
+# [ PASS ] foundry::foundry_tests::test_create_multiple_projects
+# [ PASS ] foundry::foundry_tests::test_create_project_different_creators
+# [ PASS ] foundry::foundry_tests::test_create_project_success
+# [ PASS ] foundry::foundry_tests::test_create_project_with_minimum_funding
+# [ PASS ] foundry::foundry_tests::test_create_project_zero_funding_goal
+# Test result: OK. Total tests: 5; passed: 5; failed: 0
+```
+
+### Manual Testing
+
+1. Connect wallet on localhost:5173
+2. Navigate to /create-project
+3. Fill project form
+4. (Integration pending - will submit to blockchain)
+
+---
+
+## Common Tasks
+
+### Deploy Contract to Testnet
+
+```bash
+cd foundry
+sui client publish --gas-budget 100000000
+
+# Save the Package ID from output
+# Update frontend/.env:
+# VITE_PACKAGE_ID=0x...
+```
+
+### Update Dependencies
+
+```bash
+# Frontend
+cd frontend
+npm update
+
+# Smart contract (rare)
+cd foundry
+# Update Move.toml dependencies
+```
+
+### Clean Build
+
+```bash
+# Smart contract
+cd foundry
+rm -rf build
+sui move build
+
+# Frontend
+cd frontend
+rm -rf node_modules dist
+npm install
+npm run build
+```
+
+---
+
+## Environment Variables
+
+### Frontend (.env.local)
+
+```env
+# Sui Network
+VITE_SUI_NETWORK=testnet
+
+# Walrus Storage
+VITE_WALRUS_PUBLISHER_URL=https://publisher.walrus-testnet.walrus.space
+VITE_WALRUS_AGGREGATOR_URL=https://aggregator.walrus-testnet.walrus.space
+
+# Contract Addresses (after deployment)
+VITE_PACKAGE_ID=0x...
+VITE_FOUNDRY_OBJECT_ID=0x...
+```
+
+---
+
+## Troubleshooting
+
+### "Module not found" error
+```bash
+cd frontend
+npm install
+```
+
+### "sui: command not found"
+```bash
+# Install Sui CLI
+cargo install --locked --git https://github.com/MystenLabs/sui.git --branch testnet sui
+```
+
+### Wallet not connecting
+- Install Sui wallet extension
+- Refresh page
+- Check browser console for errors
+
+### Tests failing
+```bash
+cd foundry
+rm -rf build
+sui move build
+sui move test
+```
+
+---
+
+## Resources
+
+### Documentation
+- [Sui Documentation](https://docs.sui.io/)
+- [Sui Move Book](https://move-book.com/)
+- [Walrus Docs](https://docs.walrus.site/)
+- [dApp Kit](https://sdk.mystenlabs.com/dapp-kit)
+
+### Community
+- [Sui Discord](https://discord.gg/sui)
+- [Sui Forum](https://forums.sui.io/)
+- [GitHub Issues](https://github.com/MystenLabs/sui/issues)
+
+### Tools
+- [Sui Explorer](https://suiexplorer.com/)
+- [Sui TypeScript SDK](https://sdk.mystenlabs.com/typescript)
+- [Move Playground](https://play.sui.io/)
+
+---
+
+## License
+
+MIT License - See LICENSE file
+
+---
+
+## Status Summary
+
+**Build**: ✅ Passing
+**Tests**: ✅ 5/5 passing
+**Frontend**: ✅ Running
+**Network**: Sui Testnet
+**Ready For**: Prompt 10 (contribute function)
+
+**Last Updated**: Prompt 9
+**Version**: 0.1.0
+
