@@ -9,6 +9,7 @@ import type {
   ProjectMetadata, 
   JobDescription, 
   FeedbackMessage,
+  PollData,
   ProjectCategory,
   WorkType,
   ExperienceLevel,
@@ -400,12 +401,50 @@ export function extractDomain(url: string): string {
 }
 
 /**
+ * Parses and validates project metadata from Walrus
+ */
+export function parseProjectMetadata(data: any): ProjectMetadata | null {
+  if (!data || typeof data !== 'object') return null;
+  
+  try {
+    // Ensure required fields exist with defaults
+    const metadata: ProjectMetadata = {
+      name: data.name || 'Untitled Project',
+      description: data.description || '',
+      logoCid: data.logoCid || '',
+      category: data.category || 'other',
+      tags: Array.isArray(data.tags) ? data.tags : [],
+      creator: {
+        name: data.creator?.name || 'Anonymous',
+        email: data.creator?.email || undefined,
+        website: data.creator?.website || undefined,
+        isVerified: data.creator?.isVerified || false,
+      },
+      socialLinks: Array.isArray(data.socialLinks) ? data.socialLinks : [],
+      milestones: Array.isArray(data.milestones) ? data.milestones : [],
+      risks: data.risks || '',
+      faq: Array.isArray(data.faq) ? data.faq : [],
+      version: data.version || '1.0.0',
+      createdAt: data.createdAt || Date.now(),
+      updatedAt: data.updatedAt || Date.now(),
+    };
+    
+    return validateProjectMetadata(metadata) ? metadata : null;
+  } catch (error) {
+    console.error('Error parsing project metadata:', error);
+    return null;
+  }
+}
+
+/**
  * Default export with all utilities
  */
 export default {
   createProjectMetadata,
   createJobDescription,
   createFeedbackMessage,
+  createPollData,
+  parseProjectMetadata,
   validateProjectMetadata,
   validateJobDescription,
   validateFeedbackMessage,
@@ -414,6 +453,7 @@ export default {
   getExperienceLevelLabel,
   getCompensationTypeLabel,
   getMilestoneStatusLabel,
+  getFeedbackCategoryLabel,
   formatDeadline,
   sanitizeHtml,
   truncateText,
