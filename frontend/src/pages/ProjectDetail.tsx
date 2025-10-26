@@ -12,6 +12,7 @@ import { useProjectWithMetadata, useFundingProgress, useTimeRemaining } from '..
 import { mistToSui } from '../config/constants';
 import { getWalrusUrl } from '../utils/walrusClient';
 import { getCategoryLabel, formatDeadline } from '../utils/walrusSchemas';
+import FundingWidget from '../components/FundingWidget';
 import './ProjectDetail.css';
 
 type TabType = 'details' | 'updates' | 'backers' | 'comments';
@@ -21,9 +22,10 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const account = useCurrentAccount();
   const [activeTab, setActiveTab] = useState<TabType>('details');
+  const [isFundingModalOpen, setIsFundingModalOpen] = useState(false);
 
   // Fetch project and metadata
-  const { project, metadata, isLoading, isError, error } = useProjectWithMetadata(id);
+  const { project, metadata, isLoading, isError, error, refetch } = useProjectWithMetadata(id);
   
   // Calculate funding stats
   const fundingProgress = useFundingProgress(project);
@@ -401,7 +403,7 @@ export default function ProjectDetail() {
                   if (!account) {
                     alert('Please connect your wallet to fund this project');
                   } else {
-                    alert('Funding functionality coming soon!');
+                    setIsFundingModalOpen(true);
                   }
                 }}
               >
@@ -486,6 +488,17 @@ export default function ProjectDetail() {
           </div>
         </div>
       </div>
+
+      {/* Funding Widget Modal */}
+      <FundingWidget
+        project={project}
+        isOpen={isFundingModalOpen}
+        onClose={() => setIsFundingModalOpen(false)}
+        onSuccess={() => {
+          // Refetch project data to update funding stats
+          refetch();
+        }}
+      />
     </div>
   );
 }
