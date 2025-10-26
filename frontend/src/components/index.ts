@@ -9,4 +9,7 @@ export { default as PostJobModal } from './PostJobModal';
 export { default as GovernanceTab } from './GovernanceTab';
 export { default as PollCard } from './PollCard';
 export { default as CreatePollModal } from './CreatePollModal';
+export { default as FeedbackTab } from './FeedbackTab';
+export { default as FeedbackForm } from './FeedbackForm';
+export { default as FeedbackList } from './FeedbackList';
 

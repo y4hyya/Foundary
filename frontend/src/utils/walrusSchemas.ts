@@ -293,6 +293,21 @@ export function getMilestoneStatusLabel(status: MilestoneStatus): string {
 }
 
 /**
+ * Gets a human-readable label for feedback category
+ */
+export function getFeedbackCategoryLabel(category: string): string {
+  const labels: Record<string, string> = {
+    general: 'General Feedback',
+    bug_report: 'Bug Report',
+    feature_request: 'Feature Request',
+    complaint: 'Complaint',
+    praise: 'Praise',
+  };
+  
+  return labels[category] || 'General Feedback';
+}
+
+/**
  * Formats a deadline timestamp for display
  */
 export function formatDeadline(timestamp: number): string {

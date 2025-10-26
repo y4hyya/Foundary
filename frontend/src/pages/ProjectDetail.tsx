@@ -16,9 +16,10 @@ import FundingWidget from '../components/FundingWidget';
 import ClaimReclaimWidget from '../components/ClaimReclaimWidget';
 import JobsTab from '../components/JobsTab';
 import GovernanceTab from '../components/GovernanceTab';
+import FeedbackTab from '../components/FeedbackTab';
 import './ProjectDetail.css';
 
-type TabType = 'details' | 'updates' | 'backers' | 'comments' | 'jobs' | 'governance';
+type TabType = 'details' | 'updates' | 'backers' | 'comments' | 'jobs' | 'governance' | 'feedback';
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -209,6 +210,12 @@ export default function ProjectDetail() {
             >
               Governance
             </button>
+            <button
+              className={`tab ${activeTab === 'feedback' ? 'active' : ''}`}
+              onClick={() => setActiveTab('feedback')}
+            >
+              Feedback
+            </button>
           </div>
 
           {/* Tab Content */}
@@ -377,6 +384,16 @@ export default function ProjectDetail() {
 
             {activeTab === 'governance' && (
               <GovernanceTab 
+                project={project} 
+                onSuccess={() => {
+                  // Refetch project data to update any changes
+                  refetch();
+                }}
+              />
+            )}
+
+            {activeTab === 'feedback' && (
+              <FeedbackTab 
                 project={project} 
                 onSuccess={() => {
                   // Refetch project data to update any changes
