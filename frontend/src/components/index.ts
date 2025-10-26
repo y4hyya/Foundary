@@ -4,4 +4,6 @@ export { default as WalletInfo } from './WalletInfo';
 export { default as ProjectCard } from './ProjectCard';
 export { default as FundingWidget } from './FundingWidget';
 export { default as ClaimReclaimWidget } from './ClaimReclaimWidget';
+export { default as JobsTab } from './JobsTab';
+export { default as PostJobModal } from './PostJobModal';
 

@@ -14,9 +14,10 @@ import { getWalrusUrl } from '../utils/walrusClient';
 import { getCategoryLabel, formatDeadline } from '../utils/walrusSchemas';
 import FundingWidget from '../components/FundingWidget';
 import ClaimReclaimWidget from '../components/ClaimReclaimWidget';
+import JobsTab from '../components/JobsTab';
 import './ProjectDetail.css';
 
-type TabType = 'details' | 'updates' | 'backers' | 'comments';
+type TabType = 'details' | 'updates' | 'backers' | 'comments' | 'jobs';
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -195,6 +196,12 @@ export default function ProjectDetail() {
             >
               Discussion
             </button>
+            <button
+              className={`tab ${activeTab === 'jobs' ? 'active' : ''}`}
+              onClick={() => setActiveTab('jobs')}
+            >
+              Jobs
+            </button>
           </div>
 
           {/* Tab Content */}
@@ -349,6 +356,16 @@ export default function ProjectDetail() {
                   <p>Start the discussion!</p>
                 </div>
               </div>
+            )}
+
+            {activeTab === 'jobs' && (
+              <JobsTab 
+                project={project} 
+                onSuccess={() => {
+                  // Refetch project data to update any changes
+                  refetch();
+                }}
+              />
             )}
           </div>
         </div>
